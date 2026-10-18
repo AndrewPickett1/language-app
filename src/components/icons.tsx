@@ -1,6 +1,7 @@
-import Svg, { Circle, ClipPath, Defs, G, Path, Polygon, Rect } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, G, Path, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 
 import type { LanguageCode } from '@/data/languages';
+import { Font } from '@/theme/fonts';
 
 /** Rounded, chunky icons. All take the stroke colour (usually `ink` or `onBright`). */
 type IconProps = { color: string; size?: number };
@@ -342,14 +343,108 @@ export function MatchingIcon({ line }: { line: string }) {
   );
 }
 
-/** Headphones with sound waves: the Listening exercise. */
-export function ListeningIcon({ line }: { line: string }) {
+/** A magnifying glass with a yellow handle: the Explore exercise. */
+export function ExploreIcon({ line, width = 60 }: { line: string; width?: number }) {
   return (
-    <Svg width={60} height={56} viewBox="0 0 60 56">
-      <Path d="M10 34 V28 a20 20 0 0 1 40 0 V34" fill="none" stroke={line} strokeWidth={4} strokeLinecap="round" />
-      <Rect x={4} y={30} width={14} height={22} rx={7} fill="#ffcb2e" stroke={line} strokeWidth={3} />
-      <Rect x={42} y={30} width={14} height={22} rx={7} fill="#ffcb2e" stroke={line} strokeWidth={3} />
-      <Path d="M26 36 q4 -6 0 -12 M32 40 q8 -10 0 -20" fill="none" stroke="#fff6e5" strokeWidth={3.5} strokeLinecap="round" />
+    <Svg width={width} height={(width * 56) / 60} viewBox="0 0 60 56">
+      <Path d="M34 33 L46 45" fill="none" stroke={line} strokeWidth={13} strokeLinecap="round" />
+      <Path d="M34 33 L46 45" fill="none" stroke="#ffcb2e" strokeWidth={6} strokeLinecap="round" />
+      <Circle cx={23} cy={22} r={16} fill="#c9f1ff" stroke={line} strokeWidth={4} />
+      <Path d="M14 19 a10 10 0 0 1 7 -6" fill="none" stroke="#ffffff" strokeWidth={4} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** A steaming pot on a stove: the Kitchen place. */
+export function KitchenIcon({ line }: { line: string }) {
+  return (
+    <Svg width={72} height={64} viewBox="0 0 72 64">
+      <Path d="M26 12 q-4 -4 0 -9 M36 12 q-4 -4 0 -9 M46 12 q-4 -4 0 -9" fill="none" stroke="#fff6e5" strokeWidth={3.5} strokeLinecap="round" />
+      <Rect x={4} y={31} width={12} height={8} rx={4} fill="#ffcb2e" stroke={line} strokeWidth={3} />
+      <Rect x={56} y={31} width={12} height={8} rx={4} fill="#ffcb2e" stroke={line} strokeWidth={3} />
+      <Rect x={12} y={26} width={48} height={28} rx={8} fill="#ffffff" stroke={line} strokeWidth={3} />
+      <Rect x={31} y={14} width={10} height={7} rx={3.5} fill={line} />
+      <Rect x={12} y={18} width={48} height={8} rx={4} fill="#ffcb2e" stroke={line} strokeWidth={3} />
+      <Rect x={8} y={57} width={56} height={5} rx={2.5} fill={line} />
+    </Svg>
+  );
+}
+
+/** A two-door fridge with a magnet and a note: the Refrigerator place. */
+export function FridgeIcon({ line }: { line: string }) {
+  return (
+    <Svg width={56} height={64} viewBox="0 0 56 64">
+      <Rect x={10} y={2} width={36} height={60} rx={8} fill="#ffffff" stroke={line} strokeWidth={3} />
+      <Path d="M10 24 H46" stroke={line} strokeWidth={3} />
+      <Rect x={15} y={9} width={5} height={10} rx={2.5} fill={line} />
+      <Rect x={15} y={30} width={5} height={16} rx={2.5} fill={line} />
+      <Circle cx={36} cy={13} r={4.5} fill="#ff4f9a" stroke={line} strokeWidth={2.5} />
+      <Rect x={29} y={34} width={11} height={9} rx={2} fill="#ffcb2e" stroke={line} strokeWidth={2.5} transform="rotate(8 34.5 38.5)" />
+    </Svg>
+  );
+}
+
+/** A made bed with sleepy z's: the Bedroom place. */
+export function BedroomIcon({ line }: { line: string }) {
+  return (
+    <Svg width={72} height={60} viewBox="0 0 72 60">
+      <SvgText x={46} y={16} fontFamily={Font.display700} fontSize={13} fill="#fff6e5">
+        z
+      </SvgText>
+      <SvgText x={55} y={10} fontFamily={Font.display700} fontSize={10} fill="#fff6e5">
+        z
+      </SvgText>
+      <Rect x={12} y={44} width={5} height={12} rx={2.5} fill={line} />
+      <Rect x={61} y={44} width={5} height={12} rx={2.5} fill={line} />
+      <Rect x={4} y={12} width={14} height={40} rx={6} fill="#ffcb2e" stroke={line} strokeWidth={3} />
+      <Rect x={10} y={30} width={58} height={16} rx={6} fill="#ffffff" stroke={line} strokeWidth={3} />
+      <Rect x={18} y={22} width={20} height={11} rx={5.5} fill="#fff6e5" stroke={line} strokeWidth={3} />
+      <Rect x={34} y={26} width={34} height={20} rx={6} fill="#ff4f9a" stroke={line} strokeWidth={3} />
+    </Svg>
+  );
+}
+
+/** A bathtub with a tap and bubbles: the Bathroom place. */
+export function BathroomIcon({ line }: { line: string }) {
+  return (
+    <Svg width={72} height={60} viewBox="0 0 72 60">
+      <Path d="M14 26 V12 a6 6 0 0 1 12 0 v3" fill="none" stroke={line} strokeWidth={4} strokeLinecap="round" />
+      <Circle cx={40} cy={20} r={6} fill="#ffffff" stroke={line} strokeWidth={2.5} />
+      <Circle cx={52} cy={14} r={5} fill="#ffffff" stroke={line} strokeWidth={2.5} />
+      <Circle cx={60} cy={22} r={4} fill="#ffffff" stroke={line} strokeWidth={2.5} />
+      <Rect x={14} y={44} width={6} height={12} rx={3} fill={line} />
+      <Rect x={52} y={44} width={6} height={12} rx={3} fill={line} />
+      <Path d="M4 26 H68 V34 a14 14 0 0 1 -14 14 H18 a14 14 0 0 1 -14 -14 Z" fill="#ffffff" stroke={line} strokeWidth={3} strokeLinejoin="round" />
+      <Path d="M12 33 H60" stroke="#c9f1ff" strokeWidth={4} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** A little house with a chimney: the Home place. */
+export function HouseIcon({ line }: { line: string }) {
+  return (
+    <Svg width={64} height={60} viewBox="0 0 64 60">
+      <Rect x={42} y={8} width={8} height={16} rx={3} fill="#fff6e5" stroke={line} strokeWidth={3} />
+      <Rect x={12} y={26} width={40} height={30} rx={6} fill="#2ec4f0" stroke={line} strokeWidth={3} />
+      <Path d="M6 30 L32 6 L58 30 Z" fill="#ffcb2e" stroke={line} strokeWidth={3} strokeLinejoin="round" />
+      <Rect x={26} y={38} width={12} height={18} rx={6} fill="#fff6e5" stroke={line} strokeWidth={3} />
+      <Rect x={15} y={34} width={8} height={8} rx={2} fill="#fff6e5" stroke={line} strokeWidth={2.5} />
+      <Rect x={41} y={34} width={8} height={8} rx={2} fill="#fff6e5" stroke={line} strokeWidth={2.5} />
+    </Svg>
+  );
+}
+
+/** A beach umbrella, the sun and a wave: the Beach place. */
+export function BeachIcon({ line }: { line: string }) {
+  return (
+    <Svg width={72} height={60} viewBox="0 0 72 60">
+      <Circle cx={60} cy={12} r={7} fill="#ff8a24" stroke={line} strokeWidth={3} />
+      <G transform="rotate(-12 30 22)">
+        <Path d="M30 26 V52" stroke={line} strokeWidth={4} strokeLinecap="round" />
+        <Path d="M8 26 A22 20 0 0 1 52 26 Z" fill="#ff4f9a" stroke={line} strokeWidth={3} strokeLinejoin="round" />
+        <Path d="M22 26 Q23 12 30 6 M38 26 Q37 12 30 6" fill="none" stroke={line} strokeWidth={2.5} />
+      </G>
+      <Path d="M6 54 q6 -5 12 0 t12 0 t12 0 t12 0 t12 0" fill="none" stroke="#2ec4f0" strokeWidth={4} strokeLinecap="round" />
     </Svg>
   );
 }
