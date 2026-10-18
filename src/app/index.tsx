@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import type { ReactNode } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, type ReactNode } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import Svg, { Polygon } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
 import { rankBoard } from '@/data/leaderboard';
 import { useGame } from '@/state/game';
+import { useLotto } from '@/state/lotto';
 import { useMyWords } from '@/state/my-words';
 import { useProfile } from '@/state/profile';
 import { useStreak } from '@/state/streak';
@@ -27,10 +28,17 @@ export default function HomeScreen() {
   const { streak, best, playedToday } = useStreak();
   const { initials } = useProfile();
   const myWords = useMyWords();
+  const { currentPulls, refresh: refreshLotto } = useLotto();
   const { width } = useWindowDimensions();
   // Tiles are square where there's room; on short phones they give up height before the streak card does.
   const tileSize = (width - Space[4] * 2 - TileGap) / 2;
   const weekRank = rankBoard('week', { initials, streak, collected: game.collected.length }).find((r) => r.me)?.rank;
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshLotto();
+    }, [refreshLotto])
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: p.surface }}>
@@ -40,7 +48,14 @@ export default function HomeScreen() {
 
         <View style={{ flexShrink: 1, gap: TileGap, paddingBottom: Space[1] }}>
           <View style={{ height: tileSize, minHeight: 132, flexShrink: 1, flexDirection: 'row', gap: TileGap }}>
-            <Tile title="Lotto" detail="Pull a capsule" fill={p.pink} icon={<CapsulesIcon line={p.line} />} onPress={() => router.push('/lotto')} />
+            <Tile
+              title="Lotto"
+              detail={currentPulls > 0 ? 'Pull a capsule' : 'Recharging'}
+              badge={currentPulls}
+              fill={p.pink}
+              icon={<CapsulesIcon line={p.line} />}
+              onPress={() => router.push('/lotto')}
+            />
             <Tile
               title="My words"
               detail={`${myWords.words.length} collected`}
@@ -235,14 +250,22 @@ function BestBadge() {
   );
 }
 
-type TileProps = { title: string; detail: string; fill: string; icon: ReactNode; onPress: () => void };
+type TileProps = {
+  title: string;
+  detail: string;
+  fill: string;
+  icon: ReactNode;
+  onPress: () => void;
+  /** A count in the corner, shown when above 0. */
+  badge?: number;
+};
 
-function Tile({ title, detail, fill, icon, onPress }: TileProps) {
+function Tile({ title, detail, fill, icon, onPress, badge = 0 }: TileProps) {
   const p = usePalette();
   return (
     <Sticker
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${detail}`}
+      accessibilityLabel={`${title}, ${detail}${badge > 0 ? `, ${badge} ready` : ''}`}
       fill={fill}
       radius={Radius.lg}
       borderWidth={Stroke[3]}
@@ -257,6 +280,28 @@ function Tile({ title, detail, fill, icon, onPress }: TileProps) {
       <Txt numberOfLines={1} color={p.onBright} style={{ fontFamily: Font.body800, fontSize: 13, lineHeight: 17 }}>
         {detail}
       </Txt>
+      {badge > 0 && (
+        <View
+          style={{
+            position: 'absolute',
+            top: Space[2],
+            right: Space[2],
+            minWidth: 30,
+            height: 30,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: Space[2],
+            backgroundColor: p.sunshine,
+            borderColor: p.line,
+            borderWidth: Stroke[2],
+            borderRadius: Radius.pill,
+            boxShadow: shadowPop(p.line, 2),
+          }}>
+          <Txt color={p.onBright} style={{ fontFamily: Font.body900, fontSize: 14, lineHeight: 18 }}>
+            {badge}
+          </Txt>
+        </View>
+      )}
     </Sticker>
   );
 }

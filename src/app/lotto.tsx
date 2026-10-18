@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Modal, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { Easing, FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
@@ -15,15 +16,12 @@ import { StreakPopup } from '@/components/streak-popup';
 import { Txt } from '@/components/text';
 import { WordCard } from '@/components/word-card';
 import { RarityInfo } from '@/data/rarity';
-import { MaxPulls, RefillMs, useGame, type PullResult } from '@/state/game';
+import { useGame, type PullResult } from '@/state/game';
+import { useLotto, useLottoCountdown } from '@/state/lotto';
 import { useStreak } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Bounce, Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
-
-function pad2(n: number) {
-  return String(n).padStart(2, '0');
-}
 
 export default function LottoScreen() {
   const p = usePalette();
@@ -31,26 +29,29 @@ export default function LottoScreen() {
   const streak = useStreak();
   const [phase, setPhase] = useState<MachinePhase>('idle');
   const [prize, setPrize] = useState<PullResult | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+  const lotto = useLotto();
+  const countdown = useLottoCountdown();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // `phase` only changes on the next render, so a second tap in the same frame is stopped here.
+  const busy = useRef(false);
 
-  const { refill } = game;
   useEffect(() => {
-    const tick = setInterval(() => {
-      setNow(Date.now());
-      refill();
-    }, 1000);
     const pending = timers.current;
-    return () => {
-      clearInterval(tick);
-      pending.forEach(clearTimeout);
-    };
-  }, [refill]);
+    return () => pending.forEach(clearTimeout);
+  }, []);
 
-  const canPull = game.pulls > 0 && phase === 'idle';
+  const { refresh } = lotto;
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+    }, [refresh])
+  );
+
+  const canPull = lotto.currentPulls > 0 && !lotto.spending && phase === 'idle';
 
   const onPull = async () => {
-    if (phase !== 'idle') return;
+    if (phase !== 'idle' || busy.current) return;
+    busy.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     // Spin while the word is fetched, so the machine reacts to the tap straight away.
     setPrize(null);
@@ -63,7 +64,10 @@ export default function LottoScreen() {
       setPhase('idle');
       Alert.alert("Couldn't pull a word", e instanceof Error ? e.message : 'Try again.');
       return;
+    } finally {
+      busy.current = false;
     }
+    // Out of pulls (maybe spent on another device): the countdown shows instead.
     if (!result) {
       setPhase('idle');
       return;
@@ -76,9 +80,7 @@ export default function LottoScreen() {
     );
   };
 
-  const remaining = Math.max(0, (game.nextPullAt ?? now) - now);
-  const secs = Math.ceil(remaining / 1000);
-  const countdown = `${pad2(Math.floor(secs / 3600))}:${pad2(Math.floor((secs % 3600) / 60))}:${pad2(secs % 60)}`;
+  const pullCount = `${lotto.currentPulls} / ${lotto.maxPulls} pulls`;
   const prizeColor = prize ? RarityInfo[prize.word.rarity].color : p.sky;
 
   return (
@@ -88,14 +90,14 @@ export default function LottoScreen() {
 
         <GachaMachine phase={phase} canPull={canPull} onPull={onPull} prizeColor={prizeColor} />
 
-        {game.pulls > 0 ? (
+        {lotto.currentPulls > 0 ? (
           <View
             accessible
-            accessibilityLabel={`${game.pulls} of ${MaxPulls} pulls left`}
+            accessibilityLabel={`${lotto.currentPulls} of ${lotto.maxPulls} pulls left`}
             style={{ height: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Space[3], paddingHorizontal: Space[4], backgroundColor: p.surfaceRaised, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              {Array.from({ length: MaxPulls }, (_, i) =>
-                i < game.pulls ? (
+              {Array.from({ length: lotto.maxPulls }, (_, i) =>
+                i < lotto.currentPulls ? (
                   <Capsule key={i} color={p.pink} line={p.line} size={28} shine={false} stroke={5.5} />
                 ) : (
                   <View key={i} style={{ width: 28, height: 28, borderColor: p.inkMuted, borderWidth: Stroke[2], borderStyle: 'dashed', borderRadius: Radius.pill }} />
@@ -103,14 +105,14 @@ export default function LottoScreen() {
               )}
             </View>
             <Txt variant="label" style={{ fontFamily: Font.body900, fontSize: 15, lineHeight: 20 }}>
-              {game.pulls === 1 ? '1 pull left' : `${game.pulls} pulls left`}
+              {pullCount}
             </Txt>
           </View>
-        ) : (
+        ) : countdown ? (
           <View
             accessible
             accessibilityRole="timer"
-            accessibilityLabel={`Next pull in ${countdown}`}
+            accessibilityLabel={`${pullCount}. Next pull in ${countdown.label}`}
             style={{ height: 64, flexDirection: 'row', alignItems: 'center', gap: Space[3], paddingHorizontal: 14, backgroundColor: p.sunshineSoft, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
             <ClockIcon color={p.line} fill={p.white} />
             <View style={{ flex: 1, gap: Space[1] }}>
@@ -118,12 +120,18 @@ export default function LottoScreen() {
                 <Txt variant="label" style={{ fontFamily: Font.body900 }}>
                   Next pull in
                 </Txt>
-                <Txt style={{ fontFamily: Font.display700, fontSize: 24, lineHeight: 26, fontVariant: ['tabular-nums'] }}>{countdown}</Txt>
+                <Txt style={{ fontFamily: Font.display700, fontSize: 24, lineHeight: 26, fontVariant: ['tabular-nums'] }}>{countdown.label}</Txt>
               </View>
-              <View style={{ height: 12, padding: 2, backgroundColor: p.white, borderColor: p.line, borderWidth: Stroke[1], borderRadius: Radius.pill }}>
-                <View style={{ height: '100%', width: `${Math.round((1 - remaining / RefillMs) * 100)}%`, minWidth: 6, backgroundColor: p.tangerine, borderRadius: Radius.pill }} />
-              </View>
+              <Txt variant="caption" color={p.inkMuted} style={{ fontFamily: Font.body800 }}>
+                {pullCount}
+              </Txt>
             </View>
+          </View>
+        ) : (
+          <View style={{ height: 64, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Space[4], backgroundColor: p.surfaceRaised, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
+            <Txt variant="label" color={p.inkMuted} style={{ fontFamily: Font.body900 }}>
+              {lotto.loading ? 'Checking your pulls…' : "Couldn't check your pulls"}
+            </Txt>
           </View>
         )}
       </Screen>

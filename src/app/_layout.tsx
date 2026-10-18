@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '@/state/auth';
 import { GameProvider } from '@/state/game';
 import { LanguageProvider, useLanguage } from '@/state/language';
+import { LottoProvider } from '@/state/lotto';
 import { MyWordsProvider } from '@/state/my-words';
 import { ProfileProvider } from '@/state/profile';
 import { StreakProvider } from '@/state/streak';
@@ -26,12 +27,14 @@ export default function RootLayout() {
           <LanguageProvider>
             <MyWordsProvider>
               <StreakProvider>
-                <GameProvider>
-                  <WordFiltersProvider>
-                    <StatusBar style="dark" />
-                    <RootStack />
-                  </WordFiltersProvider>
-                </GameProvider>
+                <LottoProvider>
+                  <GameProvider>
+                    <WordFiltersProvider>
+                      <StatusBar style="dark" />
+                      <RootStack />
+                    </WordFiltersProvider>
+                  </GameProvider>
+                </LottoProvider>
               </StreakProvider>
             </MyWordsProvider>
           </LanguageProvider>
