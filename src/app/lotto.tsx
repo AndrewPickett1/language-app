@@ -9,7 +9,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import { Capsule } from '@/components/art/capsule';
 import { GachaMachine, type MachinePhase } from '@/components/gacha-machine';
-import { ClockIcon, CloseIcon } from '@/components/icons';
+import { CloseIcon, RechargeClockIcon } from '@/components/icons';
 import { Screen, ScreenHeader } from '@/components/screen';
 import { RoundButton } from '@/components/sticker';
 import { StreakPopup } from '@/components/streak-popup';
@@ -80,7 +80,6 @@ export default function LottoScreen() {
     );
   };
 
-  const pullCount = `${lotto.currentPulls} / ${lotto.maxPulls} pulls`;
   const prizeColor = prize ? RarityInfo[prize.word.rarity].color : p.sky;
 
   return (
@@ -90,11 +89,18 @@ export default function LottoScreen() {
 
         <GachaMachine phase={phase} canPull={canPull} onPull={onPull} prizeColor={prizeColor} />
 
-        {lotto.currentPulls > 0 ? (
+        {lotto.loading || (lotto.currentPulls === 0 && !countdown) ? (
+          <View style={{ height: 64, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Space[4], backgroundColor: p.surfaceRaised, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
+            <Txt variant="label" color={p.inkMuted} style={{ fontFamily: Font.body900 }}>
+              {lotto.loading ? 'Checking your pulls…' : "Couldn't check your pulls"}
+            </Txt>
+          </View>
+        ) : (
           <View
             accessible
-            accessibilityLabel={`${lotto.currentPulls} of ${lotto.maxPulls} pulls left`}
-            style={{ height: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Space[3], paddingHorizontal: Space[4], backgroundColor: p.surfaceRaised, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
+            accessibilityRole={countdown ? 'timer' : undefined}
+            accessibilityLabel={`${lotto.currentPulls} of ${lotto.maxPulls} pulls available${countdown ? `. Next pull in ${countdown.label}` : ', fully charged'}`}
+            style={{ height: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingLeft: Space[4], paddingRight: Space[3], backgroundColor: lotto.currentPulls > 0 ? p.surfaceRaised : p.sunshineSoft, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {Array.from({ length: lotto.maxPulls }, (_, i) =>
                 i < lotto.currentPulls ? (
@@ -104,34 +110,12 @@ export default function LottoScreen() {
                 )
               )}
             </View>
-            <Txt variant="label" style={{ fontFamily: Font.body900, fontSize: 15, lineHeight: 20 }}>
-              {pullCount}
-            </Txt>
-          </View>
-        ) : countdown ? (
-          <View
-            accessible
-            accessibilityRole="timer"
-            accessibilityLabel={`${pullCount}. Next pull in ${countdown.label}`}
-            style={{ height: 64, flexDirection: 'row', alignItems: 'center', gap: Space[3], paddingHorizontal: 14, backgroundColor: p.sunshineSoft, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
-            <ClockIcon color={p.line} fill={p.white} />
-            <View style={{ flex: 1, gap: Space[1] }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <Txt variant="label" style={{ fontFamily: Font.body900 }}>
-                  Next pull in
-                </Txt>
-                <Txt style={{ fontFamily: Font.display700, fontSize: 24, lineHeight: 26, fontVariant: ['tabular-nums'] }}>{countdown.label}</Txt>
+            {countdown && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: Space[1], paddingLeft: 6, paddingRight: 11, backgroundColor: p.white, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.pill }}>
+                <RechargeClockIcon color={p.line} fill={p.tangerine} track={p.sunshineSoft} face={p.white} progress={countdown.progress} />
+                <Txt style={{ fontFamily: Font.display700, fontSize: 18, lineHeight: 22, fontVariant: ['tabular-nums'] }}>{countdown.label}</Txt>
               </View>
-              <Txt variant="caption" color={p.inkMuted} style={{ fontFamily: Font.body800 }}>
-                {pullCount}
-              </Txt>
-            </View>
-          </View>
-        ) : (
-          <View style={{ height: 64, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Space[4], backgroundColor: p.surfaceRaised, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
-            <Txt variant="label" color={p.inkMuted} style={{ fontFamily: Font.body900 }}>
-              {lotto.loading ? 'Checking your pulls…' : "Couldn't check your pulls"}
-            </Txt>
+            )}
           </View>
         )}
       </Screen>

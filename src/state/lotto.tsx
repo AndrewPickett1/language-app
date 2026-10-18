@@ -147,12 +147,15 @@ export function useLotto() {
   return lotto;
 }
 
+/** How long the server takes to recharge one pull. Only drives the countdown's progress dial, so keep it in step with the server. */
+export const RechargeMs = 3 * 60 * 60 * 1000;
+
 function pad2(n: number) {
   return String(n).padStart(2, '0');
 }
 
 /**
- * Time left until the next pull, by the server's clock, ticking once a second. Null when pulls are full.
+ * Time left until the next pull (`1:42:09`), by the server's clock, ticking once a second. Null when pulls are full.
  * At zero it asks the server once for the new state rather than adding the pull itself.
  */
 export function useLottoCountdown() {
@@ -183,5 +186,10 @@ export function useLottoCountdown() {
 
   if (remainingMs === null) return null;
   const secs = Math.ceil(remainingMs / 1000);
-  return { remainingMs, label: `${pad2(Math.floor(secs / 3600))}:${pad2(Math.floor((secs % 3600) / 60))}:${pad2(secs % 60)}` };
+  return {
+    remainingMs,
+    /** How much of the current recharge is done, 0–1. */
+    progress: Math.min(1, Math.max(0, 1 - remainingMs / RechargeMs)),
+    label: `${Math.floor(secs / 3600)}:${pad2(Math.floor((secs % 3600) / 60))}:${pad2(secs % 60)}`,
+  };
 }

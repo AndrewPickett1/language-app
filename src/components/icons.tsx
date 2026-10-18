@@ -85,6 +85,22 @@ export function ClockIcon({ color, fill, size = 34 }: IconProps & { fill: string
   );
 }
 
+/** A small clock on a dial that fills clockwise from the top as `progress` (0–1) goes up. */
+export function RechargeClockIcon({ color, fill, track, face, progress, size = 26 }: IconProps & { fill: string; track: string; face: string; progress: number }) {
+  const f = Math.min(1, Math.max(0, progress));
+  const a = 2 * Math.PI * f;
+  const wedge = `M13 13V1A12 12 0 ${f > 0.5 ? 1 : 0} 1 ${13 + 12 * Math.sin(a)} ${13 - 12 * Math.cos(a)}Z`;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 26 26">
+      <Circle cx={13} cy={13} r={12} fill={f >= 1 ? fill : track} />
+      {f > 0 && f < 1 && <Path d={wedge} fill={fill} />}
+      <Circle cx={13} cy={13} r={12} fill="none" stroke={color} strokeWidth={2} />
+      <Circle cx={13} cy={13} r={5.5} fill={face} stroke={color} strokeWidth={2.6} />
+      <Path d="M13 10.2v3l2 1.3" fill="none" stroke={color} strokeWidth={2.6} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function FlameIcon({ line, size = 80 }: { line: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="2 0 36 40">
