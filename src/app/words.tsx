@@ -4,7 +4,7 @@ import { FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Capsule } from '@/components/art/capsule';
-import { FilterIcon } from '@/components/icons';
+import { ArrowIcon, FilterIcon } from '@/components/icons';
 import { LanguageButton } from '@/components/language-button';
 import { Screen, ScreenHeader } from '@/components/screen';
 import { RoundButton } from '@/components/sticker';
@@ -12,18 +12,24 @@ import { Txt } from '@/components/text';
 import { RarityInfo } from '@/data/rarity';
 import { bareWord, type WordType } from '@/data/words';
 import { useMyWords } from '@/state/my-words';
-import { applyWordFilters, isFiltered, useWordFilters } from '@/state/word-filters';
+import { applyWordFilters, isFiltered, nextColumnSort, useWordFilters, type WordColumn } from '@/state/word-filters';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
 
 const Columns = [37, 29, 20, 14];
+const Headers: [WordColumn, string, string][] = [
+  ['word', 'Word', 'word'],
+  ['meaning', 'Meaning', 'meaning'],
+  ['type', 'Type', 'type'],
+  ['gender', 'Gen.', 'gender'],
+];
 
 export default function WordsScreen() {
   const p = usePalette();
   const insets = useSafeAreaInsets();
   const { words, otherLanguageCount, collected, loading, error, refresh } = useMyWords();
-  const { filters } = useWordFilters();
+  const { filters, setFilters } = useWordFilters();
   const [refreshing, setRefreshing] = useState(false);
 
   // Words can be won elsewhere, so re-read them whenever the list comes into view.
@@ -63,15 +69,24 @@ export default function WordsScreen() {
 
       <View style={{ flex: 1, marginHorizontal: -Space[4], backgroundColor: p.surfaceRaised }}>
         <View style={{ flexDirection: 'row', gap: Space[2], paddingHorizontal: 18, paddingTop: 14, paddingBottom: Space[3], backgroundColor: p.ink }}>
-          {['Word', 'Meaning', 'Type', 'Gen.'].map((h, i) => (
-            <Txt
-              key={h}
-              variant="caption"
-              color={p.surface}
-              style={{ flex: Columns[i], fontSize: 11, lineHeight: 14, fontFamily: Font.body900, textAlign: i === 3 ? 'center' : 'left' }}>
-              {h}
-            </Txt>
-          ))}
+          {Headers.map(([column, label, name], i) => {
+            const dir = filters.column?.column === column ? filters.column.dir : null;
+            return (
+              <Pressable
+                key={column}
+                accessibilityRole="button"
+                accessibilityLabel={`Sort by ${name}`}
+                accessibilityValue={dir ? { text: dir === 'asc' ? 'ascending' : 'descending' } : undefined}
+                hitSlop={{ top: 14, bottom: Space[3] }}
+                onPress={() => setFilters({ ...filters, column: nextColumnSort(filters.column, column) })}
+                style={{ flex: Columns[i], flexDirection: 'row', alignItems: 'center', justifyContent: i === 3 ? 'center' : 'flex-start', gap: 3 }}>
+                <Txt variant="caption" color={p.surface} style={{ fontSize: 11, lineHeight: 14, fontFamily: Font.body900 }}>
+                  {label}
+                </Txt>
+                {dir && <ArrowIcon color={p.surface} size={11} direction={dir === 'asc' ? 'up' : 'down'} />}
+              </Pressable>
+            );
+          })}
         </View>
         <FlatList
           data={rows}

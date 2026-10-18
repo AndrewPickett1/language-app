@@ -99,7 +99,7 @@ export default function FiltersScreen() {
         </Section>
 
         <Section title="Sort by">
-          <Segmented options={Sorts} value={draft.sort} onChange={(sort) => setDraft({ ...draft, sort })} />
+          <Segmented options={Sorts} value={draft.column ? null : draft.sort} onChange={(sort) => setDraft({ ...draft, sort, column: null })} />
         </Section>
       </ScrollView>
 
@@ -163,7 +163,7 @@ function ChipLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function Segmented<T extends string>({ options, value, onChange }: { options: [T, string][]; value: T; onChange: (v: T) => void }) {
+function Segmented<T extends string>({ options, value, onChange }: { options: [T, string][]; value: T | null; onChange: (v: T) => void }) {
   const p = usePalette();
   return (
     <View

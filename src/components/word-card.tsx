@@ -102,18 +102,21 @@ export function WordCard({ word, leading, artHeight, style }: WordCardProps) {
 
       {conjugation && <ConjugationPanel conjugation={conjugation} />}
 
-      <View style={{ gap: verb ? Space[1] : 6, padding: 14, paddingTop: verb ? 10 : Space[3], paddingBottom: verb ? Space[3] : 14, backgroundColor: p.white, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
-        <View style={{ alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 1, backgroundColor: p.onBright, borderRadius: Radius.pill }}>
-          <Txt variant="caption" color={p.paper} style={{ fontFamily: Font.body900, fontSize: 11, lineHeight: 15 }}>
-            Example
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: Space[2], padding: 14, paddingTop: verb ? 10 : Space[3], paddingBottom: verb ? Space[3] : 14, backgroundColor: p.white, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
+        <View style={{ flex: 1, gap: verb ? Space[1] : 6 }}>
+          <View style={{ alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 1, backgroundColor: p.onBright, borderRadius: Radius.pill }}>
+            <Txt variant="caption" color={p.paper} style={{ fontFamily: Font.body900, fontSize: 11, lineHeight: 15 }}>
+              Example
+            </Txt>
+          </View>
+          <Txt color={p.onBright} style={[{ fontFamily: Font.body800 }, verb ? { fontSize: 17, lineHeight: 22 } : { fontSize: 18, lineHeight: 24 }]}>
+            <HighlightedExample sentence={word.example} word={bareWord(word.word)} />
+          </Txt>
+          <Txt color={p.onBrightMuted} style={[{ fontFamily: Font.body700 }, verb ? { fontSize: 14, lineHeight: 19 } : { fontSize: 15, lineHeight: 20 }]}>
+            {word.exampleMeaning}
           </Txt>
         </View>
-        <Txt color={p.onBright} style={[{ fontFamily: Font.body800 }, verb ? { fontSize: 17, lineHeight: 22 } : { fontSize: 18, lineHeight: 24 }]}>
-          <HighlightedExample sentence={word.example} word={bareWord(word.word)} />
-        </Txt>
-        <Txt color={p.onBrightMuted} style={[{ fontFamily: Font.body700 }, verb ? { fontSize: 14, lineHeight: 19 } : { fontSize: 15, lineHeight: 20 }]}>
-          {word.exampleMeaning}
-        </Txt>
+        <SpeakButton text={word.example} />
       </View>
     </Panel>
   );

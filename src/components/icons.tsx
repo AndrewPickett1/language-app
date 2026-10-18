@@ -21,6 +21,15 @@ export function ChevronIcon({
   );
 }
 
+export function ArrowIcon({ color, size = 12, direction = 'up' }: IconProps & { direction?: 'up' | 'down' }) {
+  const d = direction === 'up' ? 'M12 20V5M6 11l6-6 6 6' : 'M12 4v15M6 13l6 6 6-6';
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d={d} fill="none" stroke={color} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export function CloseIcon({ color, size = 18 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
