@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View, type ScrollViewInstance } from 'react-native';
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -43,7 +43,7 @@ export default function RewardsScreen() {
   const [picked, setPicked] = useState<number | null>(null);
   const [justClaimed, setJustClaimed] = useState<number | null>(null);
   const scrolled = useRef(false);
-  const timeline = useRef<ScrollView>(null);
+  const timeline = useRef<ScrollViewInstance>(null);
 
   const status = (r: StreakReward): Status =>
     r.day > streak ? 'locked' : claimedRewards.includes(r.day) ? 'claimed' : 'ready';

@@ -10,7 +10,7 @@ import { LottoMascot } from '@/components/art/lotto-mascot';
 import { WordArt } from '@/components/art/word-art';
 import { CheckIcon, CloseIcon } from '@/components/icons';
 import { Screen, ScreenHeader } from '@/components/screen';
-import { SpeakButton } from '@/components/speak-button';
+import { SpeakButton, speak } from '@/components/speak-button';
 import { StreakPopup } from '@/components/streak-popup';
 import { Panel, PillButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
@@ -100,6 +100,12 @@ function StudySession({ words, deck, focusId }: { words: Word[]; deck: Word[]; f
   const [picked, setPicked] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [artWidth, setArtWidth] = useState(0);
+
+  // Say each card's word as it comes up.
+  const cardWord = session[qi]?.word.word;
+  useEffect(() => {
+    if (cardWord) speak(cardWord, language.locale);
+  }, [qi, cardWord, language.locale]);
 
   if (session.length === 0 || qi >= session.length) {
     return session.length === 0 ? (

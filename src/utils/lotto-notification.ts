@@ -11,6 +11,8 @@ let asked = false;
 
 async function ensureChannel() {
   if (Platform.OS !== 'android') return;
+  // eslint-plugin-import misreads expo-notifications' compiled enum file as a non-module, so it can't see this export.
+  // eslint-disable-next-line import/namespace
   await Notifications.setNotificationChannelAsync(ChannelId, { name: 'Lotto', importance: Notifications.AndroidImportance.DEFAULT });
 }
 

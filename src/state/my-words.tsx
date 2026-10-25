@@ -67,12 +67,19 @@ export function useMyWords() {
 type Loaded = { userId: string; words: LoadedWord[]; error: string | null };
 
 async function fetchMyWords(userId: string): Promise<Loaded> {
-  const { data, error } = await supabase
-    .from('user_words')
-    .select(`created_at, words(${WordColumns})`)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true })
-    .overrideTypes<UserWordRow[], { merge: false }>();
+  let result;
+  try {
+    result = await supabase
+      .from('user_words')
+      .select(`created_at, words(${WordColumns})`)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+      .overrideTypes<UserWordRow[], { merge: false }>();
+  } catch (e) {
+    // A thrown request (network, polyfill) would otherwise leave the list loading forever.
+    return { userId, words: [], error: e instanceof Error ? e.message : String(e) };
+  }
+  const { data, error } = result;
   if (error) return { userId, words: [], error: error.message };
   // A word can be won more than once; keep the first time.
   const seen = new Set<number>();

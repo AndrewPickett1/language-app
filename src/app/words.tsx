@@ -99,7 +99,7 @@ export default function WordsScreen() {
             setRefreshing(false);
           }}
           ListEmptyComponent={
-            loading ? null : (
+            loading ? undefined : (
               <Txt variant="bodyLg" color={p.inkMuted} style={{ padding: 18, textAlign: 'center' }}>
                 {error
                   ? `We couldn't load your words. ${error}`

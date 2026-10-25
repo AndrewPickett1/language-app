@@ -18,6 +18,7 @@ import Svg, { Polygon } from 'react-native-svg';
 import { LottoMascot } from '@/components/art/lotto-mascot';
 import { CheckIcon, ClockIcon, StarPoints } from '@/components/icons';
 import { Screen, ScreenHeader, goBack } from '@/components/screen';
+import { speak } from '@/components/speak-button';
 import { StreakPopup } from '@/components/streak-popup';
 import { PillButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
@@ -77,6 +78,7 @@ type TileState = 'idle' | 'selected' | 'wrong' | 'done';
 
 function MatchRound({ words, onAgain }: { words: Word[]; onAgain: () => void }) {
   const p = usePalette();
+  const { language } = useLanguage();
   const insets = useSafeAreaInsets();
   const game = useGame();
   const streak = useStreak();
@@ -225,7 +227,11 @@ function MatchRound({ words, onAgain }: { words: Word[]; onAgain: () => void }) 
         <View style={{ flex: 1, minHeight: 0, flexDirection: 'row', gap: Space[3] }}>
           <View accessibilityLabel="Words" style={{ flex: 1, gap: Space[3] }}>
             {pairs.map((w) => (
-              <MatchTile key={w.id} label={w.word} kind="word" state={stateOf('left', w.id)} pop={justMatched === w.id} onPress={() => pick('left', w.id)} />
+              <MatchTile key={w.id} label={w.word} kind="word" state={stateOf('left', w.id)} pop={justMatched === w.id} onPress={() => {
+                  speak(w.word, language.locale);
+                  pick('left', w.id);
+                }}
+              />
             ))}
           </View>
           <View accessibilityLabel="Meanings" style={{ flex: 1, gap: Space[3] }}>

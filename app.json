@@ -2,7 +2,7 @@
   "expo": {
     "name": "Lingo Lotto",
     "slug": "lingo-lotto",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "lingolotto",
@@ -37,6 +37,18 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c647c4ff-a441-4430-bde4-545294b0bd1f"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c647c4ff-a441-4430-bde4-545294b0bd1f"
     }
   }
 }
