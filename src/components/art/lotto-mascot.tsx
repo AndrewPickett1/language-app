@@ -31,6 +31,9 @@ const ThinkLeftArm: Limb[] = [WaveArms[0]];
 /** Drawn over the body so the hand rests on the chin. */
 const ThinkChinArm: Limb[] = [{ d: 'M152,132 C170,152 152,174 126,166', end: { cx: 122, cy: 164, rx: 9, ry: 9 } }];
 
+/** One arm down, the other scratching the top of the head. */
+const OopsArms: Limb[] = [WaveArms[0], { d: 'M152,126 C178,112 176,82 152,74', end: { cx: 148, cy: 72, rx: 9, ry: 9 } }];
+
 function Limbs({ limbs, line }: { limbs: Limb[]; line: string }) {
   return limbs.map((limb) => (
     <G key={limb.d}>
@@ -41,8 +44,8 @@ function Limbs({ limbs, line }: { limbs: Limb[]; line: string }) {
   ));
 }
 
-/** Antenna, capsule body and a happy or thinking face. */
-function Body({ line, face = 'happy' }: { line: string; face?: 'happy' | 'think' }) {
+/** Antenna, capsule body and a happy, thinking or embarrassed face. */
+function Body({ line, face = 'happy' }: { line: string; face?: 'happy' | 'think' | 'oops' }) {
   return (
     <>
       <Path d="M100,66 C96,52 110,48 104,36" fill="none" stroke={line} strokeWidth={4.5} strokeLinecap="round" />
@@ -60,7 +63,7 @@ function Body({ line, face = 'happy' }: { line: string; face?: 'happy' | 'think'
       <Circle cx={100} cy={120} r={56} fill="none" stroke={line} strokeWidth={4.5} />
       <Ellipse cx={67} cy={150} rx={8} ry={4.5} fill={Bright.pink} opacity={0.55} />
       <Ellipse cx={133} cy={150} rx={8} ry={4.5} fill={Bright.pink} opacity={0.55} />
-      {face === 'think' ? <ThinkFace line={line} /> : <HappyFace line={line} />}
+      {face === 'think' ? <ThinkFace line={line} /> : face === 'oops' ? <OopsFace line={line} /> : <HappyFace line={line} />}
     </>
   );
 }
@@ -88,11 +91,36 @@ function ThinkFace({ line }: { line: string }) {
   );
 }
 
-type Props = { line: string; width?: number; pose?: 'cheer' | 'wave' | 'think' };
+/** Eyes squeezed shut and a wobbly smile. */
+function OopsFace({ line }: { line: string }) {
+  return (
+    <>
+      <Path d="M78,128 L91,135 L78,142" fill="none" stroke={line} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M122,128 L109,135 L122,142" fill="none" stroke={line} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M86,157 Q93,151 100,157 Q107,163 114,157" fill="none" stroke={line} strokeWidth={4.5} strokeLinecap="round" />
+    </>
+  );
+}
 
-/** Lotto, the pink capsule mascot: cheering with both arms up, waving hello, or thinking. */
+type Props = { line: string; width?: number; pose?: 'cheer' | 'wave' | 'think' | 'oops' };
+
+/** Lotto, the pink capsule mascot: cheering with both arms up, waving hello, thinking, or embarrassed (oops). */
 export function LottoMascot({ line, width = 112, pose = 'cheer' }: Props) {
   const height = (width * 220) / 200;
+
+  if (pose === 'oops') {
+    return (
+      <Svg width={width} height={height} viewBox="0 0 200 220" style={{ overflow: 'visible' }} accessibilityLabel="Lotto looking embarrassed">
+        <Ellipse cx={100} cy={210} rx={40} ry={6} fill={line} opacity={0.14} />
+        <Limbs limbs={WaveLegs} line={line} />
+        <G transform="rotate(5 100 140)">
+          <Limbs limbs={OopsArms} line={line} />
+          <Body line={line} face="oops" />
+        </G>
+        <Path d="M36,62 C28,74 28,84 36,86 C44,84 44,74 36,62 Z" fill={Bright.sky} stroke={line} strokeWidth={3.5} strokeLinejoin="round" />
+      </Svg>
+    );
+  }
 
   if (pose === 'think') {
     return (

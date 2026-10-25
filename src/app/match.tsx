@@ -133,7 +133,6 @@ function MatchRound({ words, onAgain }: { words: Word[]; onAgain: () => void }) 
       later(() => setJustMatched(null), 900);
       game.recordAnswer(left, true);
       if (next.length === pairs.length) {
-        streak.markPlayed('study');
         lotto
           .claimBonus('match')
           .then((row) => row.granted && setBonus(row))

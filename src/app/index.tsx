@@ -5,9 +5,10 @@ import Svg, { Polygon } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LottoMascot } from '@/components/art/lotto-mascot';
-import { BestStreakIcon, CapsulesIcon, CardsIcon, CheckIcon, FlameIcon, StarIcon, StarPoints, StudyIcon, TrophyIcon } from '@/components/icons';
+import { BestStreakIcon, CapsulesIcon, CardsIcon, FlameIcon, StarPoints, StudyIcon, TrophyIcon } from '@/components/icons';
 import { LanguageButton } from '@/components/language-button';
 import { Sticker } from '@/components/sticker';
+import { StreakDays } from '@/components/streak-days';
 import { Txt } from '@/components/text';
 import { rankBoard } from '@/data/leaderboard';
 import { useGame } from '@/state/game';
@@ -19,13 +20,12 @@ import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke, shadowPop } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
 
-const DayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const TileGap = 14;
 
 export default function HomeScreen() {
   const p = usePalette();
   const game = useGame();
-  const { streak, best, playedToday } = useStreak();
+  const { streak, refresh: refreshStreak } = useStreak();
   const { initials } = useProfile();
   const myWords = useMyWords();
   const { refresh: refreshLotto } = useLotto();
@@ -37,14 +37,15 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       void refreshLotto();
-    }, [refreshLotto])
+      void refreshStreak();
+    }, [refreshLotto, refreshStreak])
   );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: p.surface }}>
       <View style={{ flex: 1, paddingHorizontal: Space[4], paddingTop: Space[2], paddingBottom: Space[4], gap: 18 }}>
         <Header />
-        <StreakCard streak={streak} best={best} playedToday={playedToday} />
+        <StreakCard />
 
         <View style={{ flexShrink: 1, gap: TileGap, paddingBottom: Space[1] }}>
           <View style={{ height: tileSize, minHeight: 132, flexShrink: 1, flexDirection: 'row', gap: TileGap }}>
@@ -104,15 +105,15 @@ function Header() {
   );
 }
 
-function StreakCard({ streak, best, playedToday }: { streak: number; best: number; playedToday: boolean }) {
+function StreakCard() {
   const p = usePalette();
-  const today = (new Date().getDay() + 6) % 7;
+  const { streak, best, playedToday, lost, days } = useStreak();
   const atBest = streak > 0 && streak >= best;
 
   return (
     <Sticker
       accessibilityRole="button"
-      accessibilityLabel={`${streak} day streak${atBest ? ', your best yet' : `, best ${best} days`}${playedToday ? ', played today' : ''}`}
+      accessibilityLabel={`${streak} day streak${atBest ? ', your best yet' : `, best ${best} days`}${playedToday ? ', kept today' : ''}`}
       accessibilityHint="Opens streak rewards"
       fill={p.tangerine}
       radius={Radius.lg}
@@ -167,14 +168,17 @@ function StreakCard({ streak, best, playedToday }: { streak: number; best: numbe
             </View>
           )}
         </View>
-        <LottoMascot line={p.line} width={112} />
+        <LottoMascot line={p.line} width={112} pose={lost ? 'oops' : 'cheer'} />
       </View>
 
+      {lost && (
+        <Txt color={p.onBright} style={{ marginTop: -Space[2], fontFamily: Font.body800, fontSize: 15, lineHeight: 20 }}>
+          Oops, Lotto dropped your streak! Finish an exercise to start a new one.
+        </Txt>
+      )}
+
       <View
-        accessibilityLabel="This week"
         style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
           paddingVertical: 10,
           paddingHorizontal: Space[2],
           backgroundColor: p.paper,
@@ -182,34 +186,7 @@ function StreakCard({ streak, best, playedToday }: { streak: number; best: numbe
           borderWidth: Stroke[2],
           borderRadius: Radius.md,
         }}>
-        {DayNames.map((name, i) => {
-          const done = i < today || (i === today && playedToday);
-          const pending = i === today && !playedToday;
-          const status = done ? 'played' : pending ? 'today, not played yet' : 'coming up';
-          return (
-            <View key={name} accessible accessibilityLabel={`${name}: ${status}`} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
-              <Txt variant="caption" color={p.onBrightMuted} style={{ fontFamily: Font.body900 }}>
-                {name[0]}
-              </Txt>
-              <View
-                style={{
-                  width: 32,
-                  height: 32,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: done ? p.leaf : pending ? p.sunshine : 'rgba(42, 27, 74, 0.08)',
-                  borderColor: p.onBright,
-                  borderWidth: Stroke[2],
-                  borderStyle: pending ? 'dashed' : 'solid',
-                  borderRadius: Radius.pill,
-                  opacity: done || pending ? 1 : 0.5,
-                }}>
-                {done && <CheckIcon color={p.onBright} />}
-                {pending && <StarIcon color={p.onBright} fill={p.paper} />}
-              </View>
-            </View>
-          );
-        })}
+        <StreakDays days={days} />
       </View>
     </Sticker>
   );

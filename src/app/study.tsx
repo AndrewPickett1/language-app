@@ -143,7 +143,6 @@ function StudySession({ words, deck, focusId }: { words: Word[]; deck: Word[]; f
 
   const next = () => {
     if (qi + 1 >= session.length) {
-      streak.markPlayed('study');
       lotto
         .claimBonus('study')
         .then((row) => row.granted && setBonus(row))

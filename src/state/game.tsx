@@ -6,7 +6,6 @@ import { drawWord, type PullResult } from '@/state/draw-word';
 import { useLanguage } from '@/state/language';
 import { useLotto } from '@/state/lotto';
 import { useMyWords } from '@/state/my-words';
-import { useStreak } from '@/state/streak';
 import { supabase } from '@/utils/supabase';
 import { fetchDeck } from '@/utils/word-rows';
 
@@ -42,7 +41,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const { language } = useLanguage();
   const myWords = useMyWords();
   const userId = useAuth().user?.id;
-  const { markPlayed } = useStreak();
   const lotto = useLotto();
 
   // Stable across renders so screens can use them in effects.
@@ -71,7 +69,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         void myWords.refresh();
         setState((s) => ({ ...s, collected: [...s.collected, result.word.id] }));
       }
-      markPlayed('lotto');
       return result;
     },
     recordAnswer,

@@ -13,15 +13,15 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { CheckIcon, CloseIcon, FlameIcon, StarIcon } from '@/components/icons';
+import { LottoMascot } from '@/components/art/lotto-mascot';
+import { CloseIcon, FlameIcon, StarIcon } from '@/components/icons';
 import { Panel, PillButton, RoundButton } from '@/components/sticker';
+import { StreakDays } from '@/components/streak-days';
 import { Txt } from '@/components/text';
-import { StreakMessages, type StreakReason } from '@/state/streak';
+import { StreakMessages, useStreak, type StreakReason } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Bounce, Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
-
-const DayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 /** When the count ticks up from yesterday's streak to today's. */
 const BumpMs = 450;
@@ -30,7 +30,7 @@ const OpenDelayMs = 300;
 
 type Props = { reason: StreakReason; streak: number; onClose: () => void };
 
-/** Celebrates the first pull or study session of the day: the streak ticks up and today's dot fills in. */
+/** Celebrates the first finished exercise of the day: the streak ticks up and today's dot fills in. */
 export function StreakPopup({ reason, streak, onClose }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -55,6 +55,7 @@ export function StreakPopup({ reason, streak, onClose }: Props) {
 
 function StreakCard({ reason, streak, onClose }: Props) {
   const p = usePalette();
+  const { days } = useStreak();
   const [bumped, setBumped] = useState(false);
   const wobble = useSharedValue(-4);
   const bump = useSharedValue(1);
@@ -78,10 +79,6 @@ function StreakCard({ reason, streak, onClose }: Props) {
     transform: [{ translateY: interpolate(rise.get(), [0, 1], [8, -26]) }],
   }));
 
-  const today = (new Date().getDay() + 6) % 7;
-  // Today and the days before it that the streak covers.
-  const firstStreakDay = today - (streak - 1);
-
   return (
     <Panel fill={p.white} lift={6} style={{ alignItems: 'center', gap: Space[3], paddingTop: 18, paddingHorizontal: 18, paddingBottom: 20 }}>
       <RoundButton accessibilityLabel="Close" fill={p.paper} size={36} lift={3} onPress={onClose} style={{ position: 'absolute', top: Space[3], right: Space[3], zIndex: 1 }}>
@@ -95,6 +92,9 @@ function StreakCard({ reason, streak, onClose }: Props) {
         </Animated.View>
         <View style={{ position: 'absolute', left: -8, top: 10 }}>
           <StarIcon color={p.line} fill={p.sunshine} size={18} />
+        </View>
+        <View style={{ position: 'absolute', left: -58, bottom: -12 }}>
+          <LottoMascot line={p.line} width={56} pose="cheer" />
         </View>
         <View style={{ position: 'absolute', right: 2, bottom: 6 }}>
           <StarIcon color={p.line} fill={p.paper} size={13} />
@@ -128,49 +128,9 @@ function StreakCard({ reason, streak, onClose }: Props) {
         </Txt>
       </View>
 
-      <View
-        accessibilityLabel="This week"
-        style={{
-          alignSelf: 'stretch',
-          flexDirection: 'row',
-          paddingVertical: Space[2],
-          paddingHorizontal: 6,
-          backgroundColor: p.paper,
-          borderColor: p.line,
-          borderWidth: Stroke[2],
-          borderRadius: 18,
-        }}>
-        {DayNames.map((name, i) => {
-          const isToday = i === today;
-          const played = i >= firstStreakDay && (i < today || (isToday && bumped));
-          const pending = isToday && !bumped;
-          const status = played ? 'played' : pending ? 'today' : i > today ? 'coming up' : 'missed';
-          const dot = {
-            width: 26,
-            height: 26,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: played ? p.leaf : pending ? p.sunshine : 'rgba(42, 27, 74, 0.08)',
-            borderColor: p.line,
-            borderWidth: Stroke[2],
-            borderRadius: Radius.pill,
-            opacity: played || pending ? 1 : 0.5,
-          } as const;
-          return (
-            <View key={name} accessible accessibilityLabel={`${name}: ${status}`} style={{ flex: 1, alignItems: 'center', gap: Space[1] }}>
-              <Txt color={p.onBrightMuted} style={{ fontFamily: Font.body900, fontSize: 11, lineHeight: 14, letterSpacing: 0.66 }}>
-                {name[0]}
-              </Txt>
-              {isToday && bumped ? (
-                <Animated.View entering={ZoomIn.duration(380).easing(Easing.bezier(...Bounce).factory())} style={dot}>
-                  <CheckIcon color={p.onBright} size={14} />
-                </Animated.View>
-              ) : (
-                <View style={dot}>{(played || pending) && <CheckIcon color={p.onBright} size={14} />}</View>
-              )}
-            </View>
-          );
-        })}
+      <View style={{ alignSelf: 'stretch', paddingVertical: Space[2], paddingHorizontal: 6, backgroundColor: p.paper, borderColor: p.line, borderWidth: Stroke[2], borderRadius: 18 }}>
+        {/* Today shows as still to do until the count ticks up, then pops in as done. */}
+        <StreakDays days={bumped ? days : days.map((d, i) => (i === days.length - 1 ? { ...d, status: 'pending' } : d))} size={26} popToday={bumped} />
       </View>
 
       <PillButton label="Keep going" fill={p.pink} onPress={onClose} style={{ alignSelf: 'stretch' }} />

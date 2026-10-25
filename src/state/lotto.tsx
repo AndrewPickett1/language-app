@@ -2,6 +2,7 @@ import { createContext, use, useCallback, useEffect, useRef, useState, type Reac
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/state/auth';
+import { useStreak } from '@/state/streak';
 import {
   claimExercisePull,
   fetchLottoState,
@@ -61,6 +62,7 @@ function fromServer(state: LottoState, owner: string, row: LottoStateRow): Lotto
  */
 export function LottoProvider({ children }: { children: ReactNode }) {
   const userId = useAuth().user?.id ?? null;
+  const { refresh: refreshStreak } = useStreak();
   const [stored, setState] = useState<LottoState>(Empty);
   const spendingRef = useRef<Promise<SpendResult> | null>(null);
   const state = stored.owner === userId ? stored : { ...Empty, owner: userId };
@@ -92,6 +94,9 @@ export function LottoProvider({ children }: { children: ReactNode }) {
         const result = await spendLottoPull();
         if (result.ok) {
           setState((s) => fromServer(s, userId, result.state));
+          // The spend also counts toward today's streak on the server. The Lotto screen shows the
+          // pop-up once the word card closes, so this doesn't hold up the capsule.
+          void refreshStreak('lotto');
           void askForLottoNotifications().then((granted) => {
             if (granted) void refreshNotification(result.state.next_pull_at, result.state.server_now);
           });
@@ -108,16 +113,22 @@ export function LottoProvider({ children }: { children: ReactNode }) {
     })();
     spendingRef.current = run;
     return run;
-  }, [userId, refresh]);
+  }, [userId, refresh, refreshStreak]);
 
   const claimBonus = useCallback(
     async (source: BonusSource) => {
       if (!userId) throw new Error('Sign in to earn a bonus pull.');
-      const row = await claimExercisePull(source);
-      setState((s) => fromServer(s.owner === userId ? s : Empty, userId, row));
-      return row;
+      try {
+        const row = await claimExercisePull(source);
+        setState((s) => fromServer(s.owner === userId ? s : Empty, userId, row));
+        return row;
+      } finally {
+        // The claim also counts toward today's streak on the server. Reload it before answering
+        // so the streak pop-up is ready before the pull-earned one.
+        await refreshStreak('study');
+      }
     },
-    [userId]
+    [userId, refreshStreak]
   );
 
   // Load on sign-in, and again whenever the app comes back to the foreground.
