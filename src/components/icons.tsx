@@ -234,6 +234,21 @@ export function TrophyIcon({ line }: { line: string }) {
   );
 }
 
+/** A winding path from a start dot up to a flag: the "Learn" tile. */
+export function LearnIcon({ line }: { line: string }) {
+  const road = 'M10 50 H40 C49.5 50 49.5 35 40 35 H18 C8.5 35 8.5 20 18 20 H40';
+  return (
+    <Svg width="100%" height="100%" viewBox="0 3 58 54" style={{ overflow: 'visible' }}>
+      <Path d={road} fill="none" stroke={line} strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d={road} fill="none" stroke="#fff6e5" strokeWidth={4.2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M40 20 V4.5" stroke={line} strokeWidth={3} strokeLinecap="round" />
+      <Path d="M40 4.5 L53.5 10 L40 15.5 Z" fill="#ff4f9a" stroke={line} strokeWidth={3} strokeLinejoin="round" />
+      <Circle cx={10} cy={50} r={6} fill="#3dd68c" stroke={line} strokeWidth={3} />
+      <Circle cx={40} cy={20} r={6} fill="#ffcb2e" stroke={line} strokeWidth={3} />
+    </Svg>
+  );
+}
+
 /** The trophy without its star, cropped tight for a round button. */
 export function LeaderboardIcon({ line, size = 28 }: { line: string; size?: number }) {
   return (

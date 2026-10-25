@@ -5,12 +5,12 @@ import Svg, { Polygon } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LottoMascot } from '@/components/art/lotto-mascot';
-import { BestStreakIcon, CapsulesIcon, CardsIcon, FlameIcon, StarPoints, StudyIcon, TrophyIcon } from '@/components/icons';
+import { BestStreakIcon, CapsulesIcon, CardsIcon, FlameIcon, LearnIcon, StarPoints, StudyIcon } from '@/components/icons';
 import { LanguageButton } from '@/components/language-button';
 import { Sticker } from '@/components/sticker';
 import { StreakDays } from '@/components/streak-days';
 import { Txt } from '@/components/text';
-import { rankBoard } from '@/data/leaderboard';
+import { currentUnit, unitProgress } from '@/data/level-map';
 import { useGame } from '@/state/game';
 import { useLotto, useLottoCountdown } from '@/state/lotto';
 import { useMyWords } from '@/state/my-words';
@@ -25,14 +25,14 @@ const TileGap = 14;
 export default function HomeScreen() {
   const p = usePalette();
   const game = useGame();
-  const { streak, refresh: refreshStreak } = useStreak();
-  const { initials } = useProfile();
+  const { refresh: refreshStreak } = useStreak();
   const myWords = useMyWords();
   const { refresh: refreshLotto } = useLotto();
   const { width } = useWindowDimensions();
   // Tiles are square where there's room; on short phones they give up height before the streak card does.
   const tileSize = (width - Space[4] * 2 - TileGap) / 2;
-  const weekRank = rankBoard('week', { initials, streak, collected: game.collected.length }).find((r) => r.me)?.rank;
+  const unit = currentUnit();
+  const progress = unitProgress(unit);
 
   useFocusEffect(
     useCallback(() => {
@@ -67,11 +67,11 @@ export default function HomeScreen() {
               onPress={() => router.push('/exercises')}
             />
             <Tile
-              title="Leaderboard"
-              detail={weekRank ? `#${weekRank} this week` : 'See the rankings'}
-              fill={p.grape}
-              icon={<TrophyIcon line={p.line} />}
-              onPress={() => router.push('/leaderboard')}
+              title="Learn"
+              detail={`Level ${unit.number} · ${progress.done} of ${progress.total}`}
+              fill={p.tangerine}
+              icon={<LearnIcon line={p.line} />}
+              onPress={() => router.push('/level-map')}
             />
           </View>
         </View>
