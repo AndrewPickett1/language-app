@@ -10,6 +10,7 @@ import { LottoMascot } from '@/components/art/lotto-mascot';
 import { WordArt } from '@/components/art/word-art';
 import { CheckIcon, CloseIcon } from '@/components/icons';
 import { Screen, ScreenHeader } from '@/components/screen';
+import { PullEarnedPopup } from '@/components/pull-earned-popup';
 import { SpeakButton, speak } from '@/components/speak-button';
 import { StreakPopup } from '@/components/streak-popup';
 import { Panel, PillButton, Sticker } from '@/components/sticker';
@@ -18,11 +19,13 @@ import { RarityInfo } from '@/data/rarity';
 import type { Word } from '@/data/words';
 import { useGame } from '@/state/game';
 import { useLanguage } from '@/state/language';
+import { useLotto } from '@/state/lotto';
 import { useMyWords } from '@/state/my-words';
 import { useStreak } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
+import type { BonusPullRow } from '@/utils/lotto';
 import { fetchDeck } from '@/utils/word-rows';
 
 const SessionLength = 10;
@@ -94,7 +97,9 @@ function StudySession({ words, deck, focusId }: { words: Word[]; deck: Word[]; f
   const insets = useSafeAreaInsets();
   const game = useGame();
   const streak = useStreak();
+  const lotto = useLotto();
   const { language } = useLanguage();
+  const [bonus, setBonus] = useState<BonusPullRow | null>(null);
   const [session] = useState(() => buildSession(words, deck, focusId));
   const [qi, setQi] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
@@ -113,7 +118,11 @@ function StudySession({ words, deck, focusId }: { words: Word[]; deck: Word[]; f
     ) : (
       <>
         <StudyMessage title="Session done!" detail={`You got ${score} of ${session.length} right.`} />
-        {streak.streakPopup && <StreakPopup reason={streak.streakPopup} streak={streak.streak} onClose={streak.closeStreakPopup} />}
+        {streak.streakPopup ? (
+          <StreakPopup reason={streak.streakPopup} streak={streak.streak} onClose={streak.closeStreakPopup} />
+        ) : (
+          bonus && <PullEarnedPopup source="study" pulls={bonus.current_lotto_pulls} maxPulls={bonus.max_lotto_pulls} onClose={() => setBonus(null)} />
+        )}
       </>
     );
   }
@@ -133,7 +142,13 @@ function StudySession({ words, deck, focusId }: { words: Word[]; deck: Word[]; f
   };
 
   const next = () => {
-    if (qi + 1 >= session.length) streak.markPlayed('study');
+    if (qi + 1 >= session.length) {
+      streak.markPlayed('study');
+      lotto
+        .claimBonus('study')
+        .then((row) => row.granted && setBonus(row))
+        .catch((e: Error) => console.warn(`Couldn't claim the bonus pull: ${e.message}`));
+    }
     setPicked(null);
     setQi(qi + 1);
   };

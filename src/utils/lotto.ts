@@ -19,6 +19,20 @@ export type SpendLottoRow = {
   word_id: string | null;
 };
 
+/** Exercises that earn a bonus pull when finished. */
+export type BonusSource = 'study' | 'match';
+
+/** What `claim_exercise_pull` returns. `full` means the tray had no room, so nothing was added. */
+export type BonusPullRow = {
+  granted: boolean;
+  reason: 'granted' | 'full';
+  current_lotto_pulls: number;
+  max_lotto_pulls: number;
+  /** Null when the learner's pulls are full. */
+  next_pull_at: string | null;
+  server_now: string;
+};
+
 export type SpendResult = { ok: true; state: SpendLottoRow } | { ok: false; reason: 'no_pulls'; nextPullAt: Date | null };
 
 /** The learner's pulls, with recharges applied by the server. */
@@ -39,6 +53,17 @@ export async function spendLottoPull(): Promise<SpendResult> {
   }
   if (!data) throw new Error('spend_lotto_pull returned nothing.');
   return { ok: true, state: data };
+}
+
+/** Asks the server for the bonus pull a finished exercise earns. Capped at the learner's max pulls. */
+export async function claimExercisePull(source: BonusSource): Promise<BonusPullRow> {
+  const { data, error } = await supabase
+    .rpc('claim_exercise_pull', { p_source: source })
+    .single()
+    .overrideTypes<BonusPullRow, { merge: false }>();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('claim_exercise_pull returned nothing.');
+  return data;
 }
 
 /**

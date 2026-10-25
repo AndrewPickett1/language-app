@@ -11,7 +11,7 @@ import { Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
 import { rankBoard } from '@/data/leaderboard';
 import { useGame } from '@/state/game';
-import { useLotto } from '@/state/lotto';
+import { useLotto, useLottoCountdown } from '@/state/lotto';
 import { useMyWords } from '@/state/my-words';
 import { useProfile } from '@/state/profile';
 import { useStreak } from '@/state/streak';
@@ -28,7 +28,7 @@ export default function HomeScreen() {
   const { streak, best, playedToday } = useStreak();
   const { initials } = useProfile();
   const myWords = useMyWords();
-  const { currentPulls, refresh: refreshLotto } = useLotto();
+  const { refresh: refreshLotto } = useLotto();
   const { width } = useWindowDimensions();
   // Tiles are square where there's room; on short phones they give up height before the streak card does.
   const tileSize = (width - Space[4] * 2 - TileGap) / 2;
@@ -48,14 +48,7 @@ export default function HomeScreen() {
 
         <View style={{ flexShrink: 1, gap: TileGap, paddingBottom: Space[1] }}>
           <View style={{ height: tileSize, minHeight: 132, flexShrink: 1, flexDirection: 'row', gap: TileGap }}>
-            <Tile
-              title="Lotto"
-              detail={currentPulls > 0 ? 'Pull a capsule' : 'Recharging'}
-              badge={currentPulls}
-              fill={p.pink}
-              icon={<CapsulesIcon line={p.line} />}
-              onPress={() => router.push('/lotto')}
-            />
+            <LottoTile />
             <Tile
               title="My words"
               detail={`${myWords.words.length} collected`}
@@ -247,6 +240,23 @@ function BestBadge() {
         <Polygon points={StarPoints} fill={p.paper} stroke={p.line} strokeWidth={3} strokeLinejoin="round" />
       </Svg>
     </View>
+  );
+}
+
+/** Its own component so the countdown's once-a-second tick only re-renders this tile. */
+function LottoTile() {
+  const p = usePalette();
+  const { currentPulls } = useLotto();
+  const countdown = useLottoCountdown();
+  return (
+    <Tile
+      title="Lotto"
+      detail={currentPulls > 0 ? 'Pull a capsule' : countdown ? `Ready in ${countdown.label}` : 'Recharging'}
+      badge={currentPulls}
+      fill={p.pink}
+      icon={<CapsulesIcon line={p.line} />}
+      onPress={() => router.push('/lotto')}
+    />
   );
 }
 

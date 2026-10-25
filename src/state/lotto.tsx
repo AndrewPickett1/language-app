@@ -2,7 +2,16 @@ import { createContext, use, useCallback, useEffect, useRef, useState, type Reac
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/state/auth';
-import { fetchLottoState, parseTimestamp, spendLottoPull, type LottoStateRow, type SpendResult } from '@/utils/lotto';
+import {
+  claimExercisePull,
+  fetchLottoState,
+  parseTimestamp,
+  spendLottoPull,
+  type BonusPullRow,
+  type BonusSource,
+  type LottoStateRow,
+  type SpendResult,
+} from '@/utils/lotto';
 import { askForLottoNotifications, syncLottoNotification } from '@/utils/lotto-notification';
 
 type LottoState = {
@@ -24,6 +33,8 @@ type Lotto = Omit<LottoState, 'owner'> & {
   refresh: () => Promise<void>;
   /** Spends one pull on the server. On `no_pulls` the state is refreshed so the countdown shows. */
   spend: () => Promise<SpendResult>;
+  /** Claims the bonus pull a finished exercise earns. The server decides whether it's granted. */
+  claimBonus: (source: BonusSource) => Promise<BonusPullRow>;
 };
 
 const LottoContext = createContext<Lotto | null>(null);
@@ -99,6 +110,16 @@ export function LottoProvider({ children }: { children: ReactNode }) {
     return run;
   }, [userId, refresh]);
 
+  const claimBonus = useCallback(
+    async (source: BonusSource) => {
+      if (!userId) throw new Error('Sign in to earn a bonus pull.');
+      const row = await claimExercisePull(source);
+      setState((s) => fromServer(s.owner === userId ? s : Empty, userId, row));
+      return row;
+    },
+    [userId]
+  );
+
   // Load on sign-in, and again whenever the app comes back to the foreground.
   useEffect(() => {
     if (!userId) return;
@@ -128,6 +149,7 @@ export function LottoProvider({ children }: { children: ReactNode }) {
     spending: state.spending,
     refresh,
     spend,
+    claimBonus,
   };
   return <LottoContext value={lotto}>{children}</LottoContext>;
 }

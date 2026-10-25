@@ -18,6 +18,7 @@ import Svg, { Polygon } from 'react-native-svg';
 import { LottoMascot } from '@/components/art/lotto-mascot';
 import { CheckIcon, ClockIcon, StarPoints } from '@/components/icons';
 import { Screen, ScreenHeader, goBack } from '@/components/screen';
+import { PullEarnedPopup } from '@/components/pull-earned-popup';
 import { speak } from '@/components/speak-button';
 import { StreakPopup } from '@/components/streak-popup';
 import { PillButton, Sticker } from '@/components/sticker';
@@ -25,11 +26,13 @@ import { Txt } from '@/components/text';
 import type { Word } from '@/data/words';
 import { useGame } from '@/state/game';
 import { useLanguage } from '@/state/language';
+import { useLotto } from '@/state/lotto';
 import { useMyWords } from '@/state/my-words';
 import { useStreak } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Bounce, Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
+import type { BonusPullRow } from '@/utils/lotto';
 
 const RoundSize = 5;
 
@@ -82,6 +85,8 @@ function MatchRound({ words, onAgain }: { words: Word[]; onAgain: () => void }) 
   const insets = useSafeAreaInsets();
   const game = useGame();
   const streak = useStreak();
+  const lotto = useLotto();
+  const [bonus, setBonus] = useState<BonusPullRow | null>(null);
   const [{ pairs, meanings }] = useState(() => pickRound(words));
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(startedAt);
@@ -127,7 +132,13 @@ function MatchRound({ words, onAgain }: { words: Word[]; onAgain: () => void }) 
       setJustMatched(left);
       later(() => setJustMatched(null), 900);
       game.recordAnswer(left, true);
-      if (next.length === pairs.length) streak.markPlayed('study');
+      if (next.length === pairs.length) {
+        streak.markPlayed('study');
+        lotto
+          .claimBonus('match')
+          .then((row) => row.granted && setBonus(row))
+          .catch((e: Error) => console.warn(`Couldn't claim the bonus pull: ${e.message}`));
+      }
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setWrong({ left, right });
@@ -291,6 +302,9 @@ function MatchRound({ words, onAgain }: { words: Word[]; onAgain: () => void }) 
       )}
 
       {finished && streak.streakPopup && <StreakPopup reason={streak.streakPopup} streak={streak.streak} onClose={streak.closeStreakPopup} />}
+      {finished && !streak.streakPopup && bonus && (
+        <PullEarnedPopup source="match" pulls={bonus.current_lotto_pulls} maxPulls={bonus.max_lotto_pulls} onClose={() => setBonus(null)} />
+      )}
     </View>
   );
 }
