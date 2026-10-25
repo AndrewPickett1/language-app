@@ -138,12 +138,6 @@ const FlagArt: Record<LanguageCode, React.JSX.Element> = {
       <Rect y={19.5} width={30} height={10.5} fill={FlagYellow} />
     </>
   ),
-  JA: (
-    <>
-      <Rect width={30} height={30} fill={FlagWhite} />
-      <Circle cx={15} cy={15} r={6} fill={FlagRed} />
-    </>
-  ),
   IT: (
     <>
       <Rect width={10.5} height={30} fill={FlagGreen} />
@@ -156,21 +150,6 @@ const FlagArt: Record<LanguageCode, React.JSX.Element> = {
       <Rect width={12} height={30} fill={FlagGreen} />
       <Rect x={12} width={18} height={30} fill={FlagRed} />
       <Circle cx={12} cy={15} r={5} fill={FlagYellow} />
-    </>
-  ),
-  KO: (
-    <>
-      <Rect width={30} height={30} fill={FlagWhite} />
-      <Path d="M8 15 A7 7 0 0 1 22 15 Z" fill={FlagRed} />
-      <Path d="M8 15 A7 7 0 0 0 22 15 Z" fill={FlagBlue} />
-    </>
-  ),
-  ZH: (
-    <>
-      <Rect width={30} height={30} fill={FlagRed} />
-      <G transform="translate(4 4.5) scale(0.5)">
-        <Polygon points={StarPoints} fill={FlagYellow} />
-      </G>
     </>
   ),
 };

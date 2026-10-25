@@ -238,7 +238,7 @@ function StudySession({ words, deck, focusId }: { words: Word[]; deck: Word[]; f
               {right ? <CheckIcon color={p.onBright} size={24} /> : <CloseIcon color={p.onBright} size={20} />}
             </View>
             <View style={{ flex: 1 }}>
-              <Txt style={{ fontFamily: Font.display700, fontSize: 26, lineHeight: 30 }}>{right ? '¡Muy bien!' : 'Almost!'}</Txt>
+              <Txt style={{ fontFamily: Font.display700, fontSize: 26, lineHeight: 30 }}>{right ? language.praise : 'Almost!'}</Txt>
               <Txt variant="body" style={{ fontFamily: Font.body800 }}>
                 {q.word.word} means {q.word.meaning}.
               </Txt>
