@@ -7,11 +7,14 @@ import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke, Themes } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
 
-/** The verb card's conjugation table: a tense switch over the six forms, endings highlighted. */
-export function ConjugationPanel({ conjugation }: { conjugation: Conjugation }) {
+/**
+ * The verb card's conjugation table: a tense switch over the six forms, endings highlighted.
+ * Every verb card has one. Without a `conjugation` the forms show as dashes.
+ */
+export function ConjugationPanel({ conjugation }: { conjugation?: Conjugation }) {
   const p = usePalette();
   const [tense, setTense] = useState<Tense>('present');
-  const forms = conjugation.forms[tense];
+  const forms: (VerbForm | undefined)[] = conjugation?.forms[tense] ?? Array.from({ length: Persons.length }, () => undefined);
   const rows = [0, 2, 4].map((i) => forms.slice(i, i + 2));
 
   return (
@@ -61,19 +64,25 @@ export function ConjugationPanel({ conjugation }: { conjugation: Conjugation }) 
   );
 }
 
-function FormCell({ person, form }: { person: string; form: VerbForm }) {
+function FormCell({ person, form }: { person: string; form?: VerbForm }) {
   const p = usePalette();
   return (
     <View
       accessible
-      accessibilityLabel={`${person}: ${form.stem}${form.ending}`}
+      accessibilityLabel={form ? `${person}: ${form.stem}${form.ending}` : `${person}: not available yet`}
       style={{ flex: 1, paddingHorizontal: 10, paddingTop: 5, paddingBottom: 6, backgroundColor: p.paper, borderRadius: Radius.sm }}>
       <Txt color={Themes.light.inkMuted} style={{ fontFamily: Font.body900, fontSize: 11, lineHeight: 14, letterSpacing: 0.44, textTransform: 'uppercase' }}>
         {person}
       </Txt>
       <Txt numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} color={p.onBright} style={{ fontFamily: Font.display600, fontSize: 18, lineHeight: 22 }}>
-        {form.stem}
-        <Text style={{ backgroundColor: Themes.light.sunshineSoft }}>{form.ending}</Text>
+        {form ? (
+          <>
+            {form.stem}
+            <Text style={{ backgroundColor: Themes.light.sunshineSoft }}>{form.ending}</Text>
+          </>
+        ) : (
+          '–'
+        )}
       </Txt>
     </View>
   );

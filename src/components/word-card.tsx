@@ -36,8 +36,9 @@ export function WordCard({ word, leading, artHeight, style }: WordCardProps) {
   // Words from Supabase aren't in the local deck, so they show their database id and no total.
   const deckIndex = Words.indexOf(word);
   const setNumber = (deckIndex >= 0 ? String(deckIndex + 1) : word.id).padStart(3, '0');
-  const conjugation = word.type === 'Verb' ? (word.conjugation ?? regularConjugation(word.word)) : undefined;
-  const verb = !!conjugation;
+  // The layout follows the word type alone. A verb we can't conjugate yet (French "attendre") still gets the verb card, with blank forms.
+  const verb = word.type === 'Verb';
+  const conjugation = verb ? (word.conjugation ?? regularConjugation(word.word)) : undefined;
 
   return (
     <Panel fill={info.color} lift={6} style={[{ gap: 10, padding: Space[3] }, style]}>
@@ -100,7 +101,7 @@ export function WordCard({ word, leading, artHeight, style }: WordCardProps) {
         </View>
       </View>
 
-      {conjugation && <ConjugationPanel conjugation={conjugation} />}
+      {verb && <ConjugationPanel conjugation={conjugation} />}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: Space[2], padding: 14, paddingTop: verb ? 10 : Space[3], paddingBottom: verb ? Space[3] : 14, backgroundColor: p.white, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
         <View style={{ flex: 1, gap: verb ? Space[1] : 6 }}>
