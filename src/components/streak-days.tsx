@@ -26,7 +26,7 @@ type Props = {
   popToday?: boolean;
 };
 
-/** The last 7 days as dots: done is tangerine with a check, missed is `locked`, today before it's done is an empty outline. */
+/** The last 7 days as dots: done is leaf green with a check, missed is `locked`, today before it's done is an empty outline. */
 export function StreakDays({ days, size = 32, popToday = false }: Props) {
   const p = usePalette();
   const items: (StreakDay | null)[] = days.length > 0 ? days : Array(7).fill(null);
@@ -44,7 +44,7 @@ export function StreakDays({ days, size = 32, popToday = false }: Props) {
               height: size,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: status === 'done' ? p.tangerine : status === 'missed' ? p.locked : 'transparent',
+              backgroundColor: status === 'done' ? p.leaf : status === 'missed' ? p.locked : 'transparent',
               borderColor: p.line,
               borderWidth: Stroke[2],
               borderStyle: status === 'pending' ? 'dashed' : 'solid',

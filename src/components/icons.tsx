@@ -234,6 +234,19 @@ export function TrophyIcon({ line }: { line: string }) {
   );
 }
 
+/** The trophy without its star, cropped tight for a round button. */
+export function LeaderboardIcon({ line, size = 28 }: { line: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="5 7 48 46">
+      <Path d="M17 14 C9 14 7 19 8 23 C9 28 14 30 19 30" fill="none" stroke={line} strokeWidth={3.5} strokeLinecap="round" />
+      <Path d="M41 14 C49 14 51 19 50 23 C49 28 44 30 39 30" fill="none" stroke={line} strokeWidth={3.5} strokeLinecap="round" />
+      <Path d="M16 9 H42 V22 C42 30 36 36 29 36 C22 36 16 30 16 22 Z" fill="#ffcb2e" stroke={line} strokeWidth={3.5} strokeLinejoin="round" />
+      <Rect x={25} y={35} width={8} height={8} fill="#ffcb2e" stroke={line} strokeWidth={3.5} />
+      <Rect x={17} y={42} width={24} height={9} rx={4.5} fill="#ff4f9a" stroke={line} strokeWidth={3.5} />
+    </Svg>
+  );
+}
+
 /** A small cup for the best streak. */
 export function BestStreakIcon({ color, fill, size = 18 }: IconProps & { fill: string }) {
   return (

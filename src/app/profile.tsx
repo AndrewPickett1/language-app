@@ -1,8 +1,9 @@
+import { router } from 'expo-router';
 import { Children, Fragment, useState, type ReactNode } from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 
 import { Capsule } from '@/components/art/capsule';
-import { CameraIcon, ChevronIcon, FlameIcon, HelpIcon, MailIcon, PersonIcon, SpeakerIcon } from '@/components/icons';
+import { CameraIcon, ChevronIcon, FlameIcon, HelpIcon, LeaderboardIcon, MailIcon, PersonIcon, SpeakerIcon } from '@/components/icons';
 import { Screen, ScreenHeader } from '@/components/screen';
 import { Panel, RoundButton, Sticker } from '@/components/sticker';
 import { Switch } from '@/components/switch';
@@ -49,7 +50,11 @@ export default function ProfileScreen() {
             Profile
           </Txt>
         }
-        trailing={<View style={{ width: 48 }} />}
+        trailing={
+          <RoundButton accessibilityLabel="Leaderboard" onPress={() => router.push('/leaderboard')}>
+            <LeaderboardIcon line={p.line} />
+          </RoundButton>
+        }
       />
 
       <ScrollView
