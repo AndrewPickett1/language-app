@@ -4,7 +4,7 @@ import { FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Capsule } from '@/components/art/capsule';
-import { ArrowIcon, FilterIcon } from '@/components/icons';
+import { ArrowIcon, CheckIcon, FilterIcon, PlusIcon } from '@/components/icons';
 import { LanguageButton } from '@/components/language-button';
 import { Screen, ScreenHeader } from '@/components/screen';
 import { RoundButton } from '@/components/sticker';
@@ -28,7 +28,7 @@ const Headers: [WordColumn, string, string][] = [
 export default function WordsScreen() {
   const p = usePalette();
   const insets = useSafeAreaInsets();
-  const { words, otherLanguageCount, collected, loading, error, refresh } = useMyWords();
+  const { words, otherLanguageCount, collected, loading, error, refresh, canAddToday } = useMyWords();
   const { filters, setFilters } = useWordFilters();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -49,7 +49,7 @@ export default function WordsScreen() {
         backLabel="Back to home"
         center={
           <View style={{ flex: 1 }}>
-            <Txt accessibilityRole="header" style={{ fontFamily: Font.display700, fontSize: 30, lineHeight: 34 }}>
+            <Txt accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: Font.display700, fontSize: 28, lineHeight: 32 }}>
               My words
             </Txt>
             <Txt variant="label" color={p.inkMuted}>
@@ -58,9 +58,35 @@ export default function WordsScreen() {
           </View>
         }
         trailing={
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <LanguageButton />
-            <RoundButton accessibilityLabel="Filter and sort words" fill={p.sunshine} onPress={() => router.push('/filters')}>
+            {/* Still opens after today's add is used, so words can be looked up. */}
+            <RoundButton
+              accessibilityLabel={canAddToday === false ? "Add a word. Today's word is already added" : 'Add a word'}
+              size={44}
+              fill={canAddToday === false ? p.stoneSoft : undefined}
+              onPress={() => router.push('/add-word')}>
+              <PlusIcon color={canAddToday === false ? p.inkMuted : p.ink} />
+              {canAddToday === false && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -6,
+                    right: -6,
+                    width: 20,
+                    height: 20,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: p.leaf,
+                    borderColor: p.line,
+                    borderWidth: Stroke[1],
+                    borderRadius: Radius.pill,
+                  }}>
+                  <CheckIcon color={p.onBright} size={11} />
+                </View>
+              )}
+            </RoundButton>
+            <RoundButton accessibilityLabel="Filter and sort words" size={44} fill={p.sunshine} onPress={() => router.push('/filters')}>
               <FilterIcon color={p.onBright} knob={p.paper} />
             </RoundButton>
           </View>

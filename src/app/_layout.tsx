@@ -70,6 +70,7 @@ function RootStack() {
         <Stack.Screen name="profile" />
         <Stack.Screen name="lotto" />
         <Stack.Screen name="words" />
+        <Stack.Screen name="add-word" />
         <Stack.Screen name="leaderboard" />
         <Stack.Screen name="level-map" />
         <Stack.Screen name="rewards" />

@@ -11,6 +11,7 @@ import { fetchStreakSummary, syncTimezone, type DayStatus, type StreakSummaryRow
 export const StreakMessages = {
   lotto: 'You pulled a capsule. Streak saved for today!',
   study: 'You finished an exercise. Streak saved for today!',
+  add: 'You added a word. Streak saved for today!',
 } as const;
 
 export type StreakReason = keyof typeof StreakMessages;
@@ -63,8 +64,8 @@ function addDays(date: string, offset: number) {
 }
 
 /**
- * The learner's daily streak. The server owns it: spending a pull (`spend_lotto_pull`) or finishing an exercise
- * (`claim_exercise_pull`) counts toward today, and `get_streak_summary` reads it back with any missed day already applied.
+ * The learner's daily streak. The server owns it: spending a pull (`spend_lotto_pull`), finishing an exercise
+ * (`claim_exercise_pull`) or adding today's word (`add_word`) counts toward today, and `get_streak_summary` reads it back with any missed day already applied.
  * Only the claimed rewards are local sample data.
  */
 export function StreakProvider({ children }: { children: ReactNode }) {

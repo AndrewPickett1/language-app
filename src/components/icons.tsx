@@ -47,6 +47,23 @@ export function CheckIcon({ color, size = 18 }: IconProps) {
   );
 }
 
+export function PlusIcon({ color, size = 20 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M12 5v14M5 12h14" fill="none" stroke={color} strokeWidth={4} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function SearchIcon({ color, size = 22 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx={10.5} cy={10.5} r={6.5} fill="none" stroke={color} strokeWidth={3} />
+      <Path d="M15.5 15.5L20 20" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 /** Two sliders: opens filters. `knob` fills the slider handles. */
 export function FilterIcon({ color, knob, size = 22 }: IconProps & { knob: string }) {
   return (
