@@ -20,7 +20,7 @@ export type SpendLottoRow = {
 };
 
 /** Exercises that earn a bonus pull when finished. */
-export type BonusSource = 'study' | 'match';
+export type BonusSource = 'study' | 'match' | 'lesson';
 
 /** What `claim_exercise_pull` returns. `full` means the tray had no room, so nothing was added. */
 export type BonusPullRow = {

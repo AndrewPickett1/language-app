@@ -60,6 +60,7 @@ async function setup() {
   await db.exec(migration('20261025212740_drop_profiles_streak_columns.sql'));
   await db.exec(migration('20261025213811_daily_streaks.sql'));
   await db.exec(migration('20261025215105_lotto_pull_keeps_streak.sql'));
+  await db.exec(migration('20261028130000_claim_exercise_pull_lesson.sql'));
   await db.exec(`revoke all on function public.spend_lotto_pull() from public, anon; grant execute on function public.spend_lotto_pull() to authenticated;`);
   // Supabase grants table access to the API roles by default; RLS is what limits it.
   await db.exec(`grant all on public.user_streaks to anon, authenticated;`);
@@ -297,6 +298,14 @@ test('claim_exercise_pull marks today done once and keeps its return shape', asy
   const { rows } = await as(db, B, `select * from public.get_streak_summary()`);
   assert.equal(rows[0].current_streak, 1);
   assert.equal(rows[0].days.at(-1), 'done');
+});
+
+test('a finished lesson claims a pull and keeps the streak, and unknown sources are refused', async () => {
+  const db = await setup();
+  const { rows } = await as(db, B, `select * from public.claim_exercise_pull('lesson')`);
+  assert.equal(rows[0].reason, 'granted');
+  assert.equal((await row(db, B)).current_streak, 1);
+  await assert.rejects(as(db, B, `select * from public.claim_exercise_pull('quiz')`), /INVALID_SOURCE/);
 });
 
 test('spending a lotto pull marks today done', async () => {

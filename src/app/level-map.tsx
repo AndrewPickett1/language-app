@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -10,12 +10,14 @@ import { ChevronIcon, LockIcon, StarIcon } from '@/components/icons';
 import { goBack } from '@/components/screen';
 import { Panel, RoundButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
-import { LevelMap, unitProgress, type MapModule, type MapUnit, type ModuleStatus } from '@/data/level-map';
+import { unitProgress, type MapModule, type MapUnit, type ModuleStatus } from '@/data/level-map';
+import { useLanguage } from '@/state/language';
 import { useLotto } from '@/state/lotto';
 import { useStreak } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
+import { useLevelMap } from '@/utils/modules';
 
 /** Module points are laid out on a canvas this wide, centred on the screen. */
 const Canvas = 390;
@@ -27,7 +29,7 @@ const StatusText: Record<ModuleStatus, string> = {
   reward: 'bonus reward, locked',
 };
 
-/** The Learn screen: units of modules on a winding path, first at the bottom. Sample data for now. */
+/** The Learn screen: the current language's units of modules on a winding path, first at the bottom. */
 export default function LevelMapScreen() {
   const p = usePalette();
   const insets = useSafeAreaInsets();
@@ -35,9 +37,10 @@ export default function LevelMapScreen() {
   const scrolled = useRef(false);
   const [viewport, setViewport] = useState(0);
   const [currentY, setCurrentY] = useState<number | null>(null);
-  const [selected, setSelected] = useState<string | null>(
-    () => LevelMap.flatMap((u) => u.modules).find((m) => m.status === 'current')?.id ?? null
-  );
+  const { language } = useLanguage();
+  const { units, error } = useLevelMap();
+  // The next module wears the dashed ring.
+  const selected = units?.flatMap((u) => u.modules).find((m) => m.status === 'current')?.id ?? null;
 
   // Open with the next module in the middle of the screen.
   useEffect(() => {
@@ -55,7 +58,15 @@ export default function LevelMapScreen() {
         contentContainerStyle={{ paddingTop: Space[2], paddingBottom: Space[4] + insets.bottom, gap: Space[3] }}
         showsVerticalScrollIndicator={false}
         onLayout={(e) => setViewport(e.nativeEvent.layout.height)}>
-        {[...LevelMap].reverse().map((unit) => {
+        {!units ? (
+          <ActivityIndicator color={p.ink} style={{ padding: Space[6] }} />
+        ) : units.length === 0 ? (
+          <Empty
+            title={error ? "Couldn't load the map" : 'Coming soon'}
+            body={error ?? `There are no ${language.name} lessons yet. Check back soon!`}
+          />
+        ) : (
+          [...units].reverse().map((unit) => {
           const current = unit.modules.find((m) => m.status === 'current');
           return (
             <View
@@ -64,12 +75,13 @@ export default function LevelMapScreen() {
               <UnitMap
                 unit={unit}
                 selected={selected}
-                onPick={(id) => setSelected((s) => (s === id ? null : id))}
+                onPick={(id) => router.push({ pathname: '/lesson/[id]', params: { id } })}
               />
               {unit.number > 1 && <UnitBanner unit={unit} />}
             </View>
           );
-        })}
+          })
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -291,7 +303,7 @@ function ModuleNode({ module: m, selected, onPress }: ModuleNodeProps) {
 
       <Sticker
         accessibilityRole="button"
-        accessibilityLabel={`${m.name}, ${StatusText[m.status]}`}
+        accessibilityLabel={`${m.name}, ${m.wordCount} words, ${StatusText[m.status]}`}
         accessibilityState={{ selected }}
         fill={p.paper}
         borderWidth={Stroke[3]}
@@ -393,5 +405,17 @@ function UnitBanner({ unit }: { unit: MapUnit }) {
         {unit.title}
       </Txt>
     </Panel>
+  );
+}
+
+function Empty({ title, body }: { title: string; body: string }) {
+  const p = usePalette();
+  return (
+    <View style={{ paddingVertical: Space[6], paddingHorizontal: Space[4], alignItems: 'center', gap: 6 }}>
+      <Txt style={{ fontFamily: Font.display600, fontSize: 20, lineHeight: 26, textAlign: 'center' }}>{title}</Txt>
+      <Txt color={p.inkMuted} style={{ fontFamily: Font.body700, fontSize: 15, lineHeight: 20, textAlign: 'center' }}>
+        {body}
+      </Txt>
+    </View>
   );
 }

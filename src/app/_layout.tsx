@@ -81,6 +81,7 @@ function RootStack() {
         <Stack.Screen name="kitchen" />
         <Stack.Screen name="match" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         <Stack.Screen name="study" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+        <Stack.Screen name="lesson/[id]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
       </Stack.Protected>
     </Stack>
   );

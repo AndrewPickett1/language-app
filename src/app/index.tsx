@@ -16,6 +16,7 @@ import { useLotto, useLottoCountdown } from '@/state/lotto';
 import { useMyWords } from '@/state/my-words';
 import { useProfile } from '@/state/profile';
 import { useStreak } from '@/state/streak';
+import { useLevelMap } from '@/utils/modules';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke, shadowPop } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
@@ -31,8 +32,9 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   // Tiles are square where there's room; on short phones they give up height before the streak card does.
   const tileSize = (width - Space[4] * 2 - TileGap) / 2;
-  const unit = currentUnit();
-  const progress = unitProgress(unit);
+  const { units } = useLevelMap();
+  const unit = units && currentUnit(units);
+  const progress = unit && unitProgress(unit);
 
   useFocusEffect(
     useCallback(() => {
@@ -68,7 +70,7 @@ export default function HomeScreen() {
             />
             <Tile
               title="Learn"
-              detail={`Level ${unit.number} · ${progress.done} of ${progress.total}`}
+              detail={!units ? 'Loading…' : unit && progress ? `Level ${unit.number} · ${progress.done} of ${progress.total}` : 'Coming soon'}
               fill={p.tangerine}
               icon={<LearnIcon line={p.line} />}
               onPress={() => router.push('/level-map')}

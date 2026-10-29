@@ -29,6 +29,7 @@ import type { BonusSource } from '@/utils/lotto';
 export const BonusPullMessages: Record<BonusSource, string> = {
   study: 'You finished a study session, so a fresh capsule just rolled in.',
   match: 'You cleared a matching game, so a fresh capsule just rolled in.',
+  lesson: 'You finished a lesson, so a fresh capsule just rolled in.',
 };
 
 /** When the new capsule drops into its slot. */

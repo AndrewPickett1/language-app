@@ -5,10 +5,10 @@ import { RoundButton } from '@/components/sticker';
 import { useLanguage } from '@/state/language';
 import { usePalette } from '@/theme/use-palette';
 
-/** Says `text` aloud in `locale`, cutting off anything already being said. */
-export function speak(text: string, locale: string) {
+/** Says `text` aloud in `locale`, cutting off anything already being said. A lower `rate` is slower. */
+export function speak(text: string, locale: string, rate = 0.9) {
   Speech.stop();
-  Speech.speak(text, { language: locale, rate: 0.9 });
+  Speech.speak(text, { language: locale, rate });
 }
 
 /** Says `text` aloud in the learning language. */

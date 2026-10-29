@@ -1,5 +1,6 @@
 /**
- * Sample level map for the Learn screen. Not wired to the server yet: modules and progress are made up.
+ * Level map layout for the Learn screen. Modules come from the `modules` table (see `useLevelMap` in
+ * `src/utils/modules.ts`). Progress isn't stored yet, so the first module is up next and the rest are locked.
  * Points are on a 390px-wide canvas, one per module, bottom (first) to top (last).
  */
 
@@ -8,6 +9,8 @@ export type ModuleStatus = 'done' | 'current' | 'locked' | 'reward';
 export type MapModule = {
   id: string;
   name: string;
+  description: string | null;
+  wordCount: number;
   /** Short text on the capsule. */
   glyph: string;
   status: ModuleStatus;
@@ -25,31 +28,49 @@ export type MapUnit = {
   modules: MapModule[];
 };
 
-export const LevelMap: MapUnit[] = [
-  {
-    number: 1,
-    title: 'Lo básico',
-    height: 710,
-    modules: [
-      { id: 'sino', name: 'Sí o no', glyph: 'S/N', status: 'done', stars: 3, x: 195, y: 620 },
-      { id: 'hola', name: '¡Hola!', glyph: 'Hola', status: 'done', stars: 2, x: 275, y: 488 },
-      { id: 'ser', name: 'Ser', glyph: 'Ser', status: 'current', x: 230, y: 356 },
-      { id: 'bonus', name: 'Bonus pull', glyph: '?', status: 'reward', x: 130, y: 224 },
-      { id: 'tener', name: 'Tener', glyph: 'Tener', status: 'locked', x: 180, y: 92 },
-    ],
-  },
-  {
-    number: 2,
-    title: 'El presente',
-    height: 580,
-    modules: [
-      { id: 'articles', name: 'El, la, los', glyph: 'el/la', status: 'locked', x: 195, y: 500 },
-      { id: 'ar', name: 'Verbos en -ar', glyph: '-ar', status: 'locked', x: 270, y: 368 },
-      { id: 'questions', name: 'Preguntas', glyph: '¿Qué?', status: 'locked', x: 220, y: 236 },
-      { id: 'review', name: 'Unit check', glyph: 'Quiz', status: 'locked', x: 150, y: 104 },
-    ],
-  },
-];
+/** A `modules` row as the Learn screen reads it, with its `module_words` count. */
+export type ModuleRow = {
+  id: number;
+  unit: number;
+  position: number;
+  title: string;
+  description: string | null;
+  words: { count: number }[];
+};
+
+const UnitTitles: Record<number, string> = { 1: 'The basics', 2: 'The present' };
+
+/** Side-to-side positions the road winds through, repeated for longer units. */
+const Xs = [195, 275, 230, 130, 180];
+/** Vertical gap between modules, and the space above the top one and below the bottom one. */
+const Step = 132;
+const Top = 92;
+const Bottom = 90;
+
+/** Groups modules (already in unit and position order) into units and lays each unit out on the map. */
+export function buildLevelMap(rows: ModuleRow[]): MapUnit[] {
+  const byUnit = new Map<number, ModuleRow[]>();
+  for (const row of rows) byUnit.set(row.unit, [...(byUnit.get(row.unit) ?? []), row]);
+
+  return [...byUnit].map(([number, unitRows], u) => {
+    const height = Top + Bottom + Step * (unitRows.length - 1);
+    return {
+      number,
+      title: UnitTitles[number] ?? `Unit ${number}`,
+      height,
+      modules: unitRows.map((row, i) => ({
+        id: String(row.id),
+        name: row.title,
+        description: row.description,
+        wordCount: row.words[0]?.count ?? 0,
+        glyph: String(i + 1),
+        status: u === 0 && i === 0 ? 'current' : 'locked',
+        x: Xs[i % Xs.length],
+        y: height - Bottom - Step * i,
+      })),
+    };
+  });
+}
 
 /** Lessons in a unit, leaving out reward capsules. */
 export function unitProgress(unit: MapUnit) {
@@ -57,7 +78,7 @@ export function unitProgress(unit: MapUnit) {
   return { done: lessons.filter((m) => m.status === 'done').length, total: lessons.length };
 }
 
-/** The unit holding the learner's next module, for the home tile. */
-export function currentUnit() {
-  return LevelMap.find((u) => u.modules.some((m) => m.status === 'current')) ?? LevelMap[0];
+/** The unit holding the learner's next module, for the home tile. Undefined when there are no units. */
+export function currentUnit(units: MapUnit[]): MapUnit | undefined {
+  return units.find((u) => u.modules.some((m) => m.status === 'current')) ?? units[0];
 }

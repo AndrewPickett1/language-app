@@ -22,13 +22,18 @@ export type LoadedWord = Word & { language: string | null };
 
 /** Every word in the `words` table for the given language, matched by name like the language picker does. */
 export async function fetchDeck(languageName: string): Promise<Word[]> {
+  return (await fetchDeckRows(languageName)).map(toWord);
+}
+
+/** The deck as raw rows, for callers that need the database's own `word_type`. */
+export async function fetchDeckRows(languageName: string): Promise<WordRow[]> {
   const { data, error } = await supabase
     .from('words')
     .select(WordColumns.replace('language:language_id(name)', 'language:language_id!inner(name)'))
     .ilike('language.name', languageName)
     .overrideTypes<WordRow[], { merge: false }>();
   if (error) throw new Error(error.message);
-  return data.map(toWord);
+  return data;
 }
 
 export function toWord(row: WordRow): LoadedWord {
