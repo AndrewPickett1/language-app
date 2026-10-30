@@ -21,7 +21,7 @@ import { useStreak } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
-import { fetchLesson, fetchLessonDeck, type Lesson } from '@/utils/modules';
+import { completeModule, fetchLesson, fetchLessonDeck, type Lesson } from '@/utils/modules';
 
 type Loaded = { id: string; lesson: Lesson | null; deck: LessonWord[]; error: string | null };
 
@@ -85,17 +85,22 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
     setFeedback(next);
   };
 
+  const accuracy = stats.total ? Math.round((stats.right / stats.total) * 100) : null;
+
   const advance = () => {
     setFeedback(null);
     const next = index + 1;
     setIndex(next);
     if (next >= steps.length && !claimed.current) {
-      // Finishing a module earns a pull and keeps the streak, like the other exercises.
+      // Finishing records the module as done and keeps the streak. The first time, it also earns a pull.
       claimed.current = true;
-      lotto
-        .claimBonus('lesson')
-        .then((row) => row.granted && setEarnedPull(true))
-        .catch((e: Error) => console.warn(`Couldn't claim the lesson pull: ${e.message}`));
+      completeModule(lesson.id, accuracy)
+        .then(async (row) => {
+          // Pulls and the streak come from the server, so reload both rather than counting here.
+          await Promise.all([lotto.refresh(), streak.refresh('study')]);
+          if (row.pull_granted) setEarnedPull(true);
+        })
+        .catch((e: Error) => console.warn(`Couldn't record the finished module: ${e.message}`));
     }
   };
 
@@ -107,7 +112,7 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
           title={lesson.title}
           words={lesson.words}
           bestCombo={stats.best}
-          accuracy={stats.total ? Math.round((stats.right / stats.total) * 100) : null}
+          accuracy={accuracy}
           earnedPull={earnedPull}
         />
         {streak.streakPopup && <StreakPopup reason={streak.streakPopup} streak={streak.streak} onClose={streak.closeStreakPopup} />}

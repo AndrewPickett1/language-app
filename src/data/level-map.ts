@@ -1,6 +1,7 @@
 /**
  * Level map layout for the Learn screen. Modules come from the `modules` table (see `useLevelMap` in
- * `src/utils/modules.ts`). Progress isn't stored yet, so the first module is up next and the rest are locked.
+ * `src/utils/modules.ts`). Modules the learner has finished (a `user_modules` row) are done, the first one
+ * they haven't is up next, and the rest are locked.
  * Points are on a 390px-wide canvas, one per module, bottom (first) to top (last).
  */
 
@@ -36,7 +37,15 @@ export type ModuleRow = {
   title: string;
   description: string | null;
   words: { count: number }[];
+  /** The learner's `user_modules` row, if they've finished it. */
+  done: { best_score: number | null }[];
 };
+
+/** Stars for a finished module from its best accuracy. */
+function starsFor(bestScore: number | null) {
+  if (bestScore === null) return 3;
+  return bestScore >= 90 ? 3 : bestScore >= 70 ? 2 : 1;
+}
 
 const UnitTitles: Record<number, string> = { 1: 'The basics', 2: 'The present' };
 
@@ -49,10 +58,11 @@ const Bottom = 90;
 
 /** Groups modules (already in unit and position order) into units and lays each unit out on the map. */
 export function buildLevelMap(rows: ModuleRow[]): MapUnit[] {
+  const next = rows.find((row) => row.done.length === 0);
   const byUnit = new Map<number, ModuleRow[]>();
   for (const row of rows) byUnit.set(row.unit, [...(byUnit.get(row.unit) ?? []), row]);
 
-  return [...byUnit].map(([number, unitRows], u) => {
+  return [...byUnit].map(([number, unitRows]) => {
     const height = Top + Bottom + Step * (unitRows.length - 1);
     return {
       number,
@@ -64,7 +74,8 @@ export function buildLevelMap(rows: ModuleRow[]): MapUnit[] {
         description: row.description,
         wordCount: row.words[0]?.count ?? 0,
         glyph: String(i + 1),
-        status: u === 0 && i === 0 ? 'current' : 'locked',
+        status: row.done.length > 0 ? 'done' : row === next ? 'current' : 'locked',
+        stars: row.done.length > 0 ? starsFor(row.done[0].best_score) : undefined,
         x: Xs[i % Xs.length],
         y: height - Bottom - Step * i,
       })),

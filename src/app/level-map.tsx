@@ -6,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { LottoMascot } from '@/components/art/lotto-mascot';
-import { ChevronIcon, LockIcon, StarIcon } from '@/components/icons';
+import { CheckIcon, ChevronIcon, LockIcon, StarIcon } from '@/components/icons';
 import { goBack } from '@/components/screen';
 import { Panel, RoundButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
@@ -304,10 +304,11 @@ function ModuleNode({ module: m, selected, onPress }: ModuleNodeProps) {
       <Sticker
         accessibilityRole="button"
         accessibilityLabel={`${m.name}, ${m.wordCount} words, ${StatusText[m.status]}`}
-        accessibilityState={{ selected }}
+        accessibilityState={{ selected, disabled: m.status === 'locked' }}
         fill={p.paper}
         borderWidth={Stroke[3]}
-        onPress={onPress}
+        // A module opens once the one before it is done, which the server checks too.
+        onPress={m.status === 'locked' ? undefined : onPress}
         style={{ position: 'absolute', left: m.x - half, top: m.y - half, width: size, height: size }}>
         <View style={[StyleSheet.absoluteFill, { borderRadius: Radius.pill, overflow: 'hidden' }]}>
           <View style={{ height: '50%', backgroundColor: top, borderBottomWidth: Stroke[2], borderColor: p.line }} />
@@ -367,6 +368,25 @@ function ModuleNode({ module: m, selected, onPress }: ModuleNodeProps) {
           {[1, 2, 3].map((i) => (
             <StarIcon key={i} color={p.line} fill={i <= (m.stars ?? 0) ? p.sunshine : p.locked} size={20} />
           ))}
+        </View>
+      )}
+      {m.status === 'done' && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: m.x + half - 24,
+            top: m.y - half - 8,
+            width: 32,
+            height: 32,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: p.leaf,
+            borderColor: p.line,
+            borderWidth: Stroke[2],
+            borderRadius: Radius.pill,
+          }}>
+          <CheckIcon color={p.line} size={20} />
         </View>
       )}
       {m.status === 'reward' && (
