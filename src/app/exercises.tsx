@@ -29,7 +29,7 @@ export default function ExercisesScreen() {
 
   const exercises: Exercise[] = [
     { title: 'Flashcards', detail: 'Pick the meaning', fill: p.sky, art: <FlashcardsIcon line={p.line} />, href: '/study' },
-    { title: 'Matching', detail: 'Pair words up', fill: p.pink, art: <MatchingIcon line={p.line} />, href: '/match', isNew: true },
+    { title: 'Matching', detail: 'Pair words up', fill: p.pink, art: <MatchingIcon line={p.line} />, href: '/match' },
     { title: 'Explore', detail: 'Discover new words', fill: p.grape, art: <ExploreIcon line={p.line} />, href: '/explore' },
     { title: 'Spelling', detail: 'Type the word', fill: p.sunshine, art: <SpellingIcon line={p.line} /> },
     { title: 'Gender', detail: 'El or la?', fill: p.tangerine, art: <GenderArt /> },

@@ -1,9 +1,9 @@
 import { router } from 'expo-router';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 
 import { LottoMascot } from '@/components/art/lotto-mascot';
 import { CheckIcon, ChevronIcon, LockIcon, StarIcon } from '@/components/icons';
@@ -12,15 +12,22 @@ import { Panel, RoundButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
 import { unitProgress, type MapModule, type MapUnit, type ModuleStatus } from '@/data/level-map';
 import { useLanguage } from '@/state/language';
-import { useLotto } from '@/state/lotto';
-import { useStreak } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
 import { useLevelMap } from '@/utils/modules';
 
-/** Module points are laid out on a canvas this wide, centred on the screen. */
+/** Module points are laid out on a canvas this wide, then stretched to fill the screen. */
 const Canvas = 390;
+
+type Size = { width: number; height: number };
+
+/** Spreads a unit's module points across the space its map actually got. */
+function fitUnit(unit: MapUnit, size: Size): MapUnit {
+  const sx = size.width / Canvas;
+  const sy = size.height / unit.height;
+  return { ...unit, height: size.height, modules: unit.modules.map((m) => ({ ...m, x: m.x * sx, y: m.y * sy })) };
+}
 
 const StatusText: Record<ModuleStatus, string> = {
   done: 'complete',
@@ -36,11 +43,19 @@ export default function LevelMapScreen() {
   const scroll = useRef<ScrollViewInstance>(null);
   const scrolled = useRef(false);
   const [viewport, setViewport] = useState(0);
-  const [currentY, setCurrentY] = useState<number | null>(null);
+  // Where each unit sits in the scroll content, and the size its map stretched to.
+  const [tops, setTops] = useState<Record<number, number>>({});
+  const [sizes, setSizes] = useState<Record<number, Size>>({});
   const { language } = useLanguage();
   const { units, error } = useLevelMap();
   // The next module wears the dashed ring.
   const selected = units?.flatMap((u) => u.modules).find((m) => m.status === 'current')?.id ?? null;
+  const currentUnit = units?.find((u) => u.modules.some((m) => m.status === 'current'));
+  const currentY =
+    currentUnit && tops[currentUnit.number] !== undefined && sizes[currentUnit.number]
+      ? tops[currentUnit.number] +
+        fitUnit(currentUnit, sizes[currentUnit.number]).modules.find((m) => m.status === 'current')!.y
+      : null;
 
   // Open with the next module in the middle of the screen.
   useEffect(() => {
@@ -50,12 +65,11 @@ export default function LevelMapScreen() {
   }, [viewport, currentY]);
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: p.surfaceRaised }}>
-      <Header />
+    <View style={{ flex: 1, backgroundColor: p.surface }}>
       <ScrollView
         ref={scroll}
-        style={{ flex: 1, backgroundColor: p.surface }}
-        contentContainerStyle={{ paddingTop: Space[2], paddingBottom: Space[4] + insets.bottom, gap: Space[3] }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top, paddingBottom: insets.bottom, gap: Space[3] }}
         showsVerticalScrollIndicator={false}
         onLayout={(e) => setViewport(e.nativeEvent.layout.height)}>
         {!units ? (
@@ -66,111 +80,30 @@ export default function LevelMapScreen() {
             body={error ?? `There are no ${language.name} lessons yet. Check back soon!`}
           />
         ) : (
-          [...units].reverse().map((unit) => {
-          const current = unit.modules.find((m) => m.status === 'current');
-          return (
+          [...units].reverse().map((unit) => (
             <View
               key={unit.number}
-              onLayout={current ? (e) => setCurrentY(e.nativeEvent.layout.y + current.y) : undefined}>
+              style={{ flexGrow: 1 }}
+              onLayout={(e) => setTops((t) => ({ ...t, [unit.number]: e.nativeEvent.layout.y }))}>
               <UnitMap
                 unit={unit}
+                size={sizes[unit.number]}
+                onSize={(size) => setSizes((s) => ({ ...s, [unit.number]: size }))}
                 selected={selected}
                 onPick={(id) => router.push({ pathname: '/lesson/[id]', params: { id } })}
               />
               {unit.number > 1 && <UnitBanner unit={unit} />}
             </View>
-          );
-          })
+          ))
         )}
       </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-function Header() {
-  const p = usePalette();
-  const { streak } = useStreak();
-  const { currentPulls, maxPulls } = useLotto();
-  return (
-    <View
-      style={{
-        height: 64,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: Space[2],
-        paddingHorizontal: Space[4],
-        backgroundColor: p.surfaceRaised,
-        borderBottomWidth: Stroke[2],
-        borderColor: p.line,
-        zIndex: 1,
-      }}>
-      <RoundButton accessibilityLabel="Back to home" size={44} fill={p.paper} onPress={() => goBack('/')}>
-        <ChevronIcon color={p.ink} />
-      </RoundButton>
-      <View style={{ flexDirection: 'row', gap: Space[2] }}>
-        <HeaderPill
-          label={`${streak}`}
-          accessibilityLabel={`${streak}-day streak`}
-          fill={p.tangerine}
-          icon={<SmallFlame />}
-          onPress={() => router.push('/rewards')}
-        />
-        <HeaderPill
-          label={`${currentPulls}/${maxPulls}`}
-          accessibilityLabel={`${currentPulls} of ${maxPulls} pulls ready`}
-          fill={p.sunshine}
-          icon={<SmallCapsule />}
-          onPress={() => router.push('/lotto')}
-        />
+      {/* The map scrolls under a lone back button. */}
+      <View style={{ position: 'absolute', top: insets.top + Space[2], left: Space[4] }}>
+        <RoundButton accessibilityLabel="Back to home" size={44} fill={p.paper} onPress={() => goBack('/')}>
+          <ChevronIcon color={p.ink} />
+        </RoundButton>
       </View>
     </View>
-  );
-}
-
-type HeaderPillProps = { label: string; accessibilityLabel: string; fill: string; icon: ReactNode; onPress: () => void };
-
-function HeaderPill({ label, accessibilityLabel, fill, icon, onPress }: HeaderPillProps) {
-  const p = usePalette();
-  return (
-    <Sticker
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      fill={fill}
-      onPress={onPress}
-      style={{ height: 44, flexDirection: 'row', alignItems: 'center', gap: Space[1], paddingLeft: Space[2], paddingRight: Space[3] }}>
-      {icon}
-      <Txt color={p.onBright} style={{ fontFamily: Font.display600, fontSize: 17, lineHeight: 22 }}>
-        {label}
-      </Txt>
-    </Sticker>
-  );
-}
-
-function SmallFlame() {
-  const p = usePalette();
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24">
-      <Path
-        d="M12 3c1 3 5.5 5 5.5 10a5.5 5.5 0 0 1-11 0c0-2.6 1.4-4.2 2.6-5.2 0 2 1 3.2 2.1 3.2 0-3-1.2-5.4.8-8z"
-        fill={p.paper}
-        stroke={p.line}
-        strokeWidth={2}
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function SmallCapsule() {
-  const p = usePalette();
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24">
-      <Path d="M4 12a8 8 0 0 1 16 0z" fill={p.pink} />
-      <Path d="M4 12a8 8 0 0 0 16 0z" fill={p.paper} />
-      <Circle cx={12} cy={12} r={8} fill="none" stroke={p.line} strokeWidth={2} />
-      <Path d="M4 12h16" stroke={p.line} strokeWidth={2} />
-    </Svg>
   );
 }
 
@@ -186,9 +119,32 @@ function roadThrough(points: MapModule[]) {
     .join(' ');
 }
 
-type UnitMapProps = { unit: MapUnit; selected: string | null; onPick: (id: string) => void };
+type UnitMapProps = {
+  unit: MapUnit;
+  /** The space the map got on screen, once measured. */
+  size: Size | undefined;
+  onSize: (size: Size) => void;
+  selected: string | null;
+  onPick: (id: string) => void;
+};
 
-function UnitMap({ unit, selected, onPick }: UnitMapProps) {
+/** A unit's road, at least its natural height and stretched to fill whatever room is left. */
+function UnitMap({ unit, size, onSize, selected, onPick }: UnitMapProps) {
+  return (
+    <View
+      style={{ flexGrow: 1, minHeight: unit.height }}
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        if (width !== size?.width || height !== size?.height) onSize({ width, height });
+      }}>
+      {size && <UnitRoad unit={fitUnit(unit, size)} width={size.width} selected={selected} onPick={onPick} />}
+    </View>
+  );
+}
+
+type UnitRoadProps = { unit: MapUnit; width: number; selected: string | null; onPick: (id: string) => void };
+
+function UnitRoad({ unit, width, selected, onPick }: UnitRoadProps) {
   const p = usePalette();
   const { modules } = unit;
   // The road is green up to the furthest module reached.
@@ -196,15 +152,15 @@ function UnitMap({ unit, selected, onPick }: UnitMapProps) {
   const current = modules.find((m) => m.status === 'current');
 
   return (
-    <View style={{ width: Canvas, height: unit.height, alignSelf: 'center' }}>
-      <Svg width={Canvas} height={unit.height} style={{ position: 'absolute' }}>
+    <View style={StyleSheet.absoluteFill}>
+      <Svg width={width} height={unit.height} style={{ position: 'absolute' }}>
         <Path d={roadThrough(modules)} fill="none" stroke={p.line} strokeWidth={20} strokeLinecap="round" />
         <Path d={roadThrough(modules)} fill="none" stroke={p.surfaceSunken} strokeWidth={12} strokeLinecap="round" />
         {reach > 0 && (
           <Path d={roadThrough(modules.slice(0, reach + 1))} fill="none" stroke={p.leaf} strokeWidth={12} strokeLinecap="round" />
         )}
       </Svg>
-      {current && <Mascot module={current} />}
+      {current && <Mascot module={current} width={width} />}
       {modules.map((m) => (
         <ModuleNode key={m.id} module={m} selected={selected === m.id} onPress={() => onPick(m.id)} />
       ))}
@@ -221,10 +177,10 @@ function useBob() {
 }
 
 /** Lotto waves beside the next module, on whichever side has room. */
-function Mascot({ module: m }: { module: MapModule }) {
+function Mascot({ module: m, width }: { module: MapModule; width: number }) {
   const p = usePalette();
   const bob = useBob();
-  const left = m.x >= Canvas / 2 ? m.x - 200 : m.x + 100;
+  const left = m.x >= width / 2 ? m.x - 200 : m.x + 100;
   return (
     <Animated.View pointerEvents="none" style={[{ position: 'absolute', left, top: m.y - 66 }, bob]}>
       <LottoMascot line={p.line} width={100} pose="wave" />
