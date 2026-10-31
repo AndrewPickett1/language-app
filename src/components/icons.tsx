@@ -522,3 +522,22 @@ export function PlayIcon({ color, size = 14 }: IconProps) {
     </Svg>
   );
 }
+
+/** A turtle: plays a word slowly. `fill` is its shell. */
+export function TurtleIcon({ color, fill, size = 26 }: IconProps & { fill: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M4 15c0-4 3.5-7 7.5-7S18 11 18 15z" fill={fill} stroke={color} strokeWidth={2.2} strokeLinejoin="round" />
+      <Path d="M18 13.5c1.5 0 3-.8 3-2.5s-1.5-2-3-1.2M7 15v2.5M15 15v2.5M3 15h16" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/** Two arrows chasing each other round: flips a card. */
+export function FlipIcon({ color, size = 16 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4" fill="none" stroke={color} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}

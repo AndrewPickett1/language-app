@@ -124,14 +124,14 @@ export function WordCard({ word, leading, artHeight, style }: WordCardProps) {
 }
 
 /** The example sentence with the card's word marked, matched case-insensitively. */
-function HighlightedExample({ sentence, word }: { sentence: string; word: string }) {
+export function HighlightedExample({ sentence, word, fill = Themes.light.sunshineSoft }: { sentence: string; word: string; fill?: string }) {
   const start = sentence.toLowerCase().indexOf(word.toLowerCase());
   if (start < 0) return sentence;
   const end = start + word.length;
   return (
     <>
       {sentence.slice(0, start)}
-      <Text style={{ backgroundColor: Themes.light.sunshineSoft }}>{sentence.slice(start, end)}</Text>
+      <Text style={{ backgroundColor: fill }}>{sentence.slice(start, end)}</Text>
       {sentence.slice(end)}
     </>
   );
