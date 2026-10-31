@@ -17,6 +17,7 @@ import { Txt } from '@/components/text';
 import { buildLesson, RetryKinds, type LessonWord, type Step } from '@/data/lesson';
 import { useLanguage } from '@/state/language';
 import { useLotto } from '@/state/lotto';
+import { useMyWords } from '@/state/my-words';
 import { useStreak } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
@@ -59,6 +60,7 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
   const p = usePalette();
   const lotto = useLotto();
   const streak = useStreak();
+  const myWords = useMyWords();
   const [steps, setSteps] = useState<Step[]>(() => buildLesson(lesson.words, deck));
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -96,8 +98,8 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
       claimed.current = true;
       completeModule(lesson.id, accuracy)
         .then(async (row) => {
-          // Pulls and the streak come from the server, so reload both rather than counting here.
-          await Promise.all([lotto.refresh(), streak.refresh('study')]);
+          // Pulls, the streak and the learner's words come from the server, so reload them rather than counting here.
+          await Promise.all([lotto.refresh(), streak.refresh('study'), row.words_added > 0 && myWords.refresh()]);
           if (row.pull_granted) setEarnedPull(true);
         })
         .catch((e: Error) => console.warn(`Couldn't record the finished module: ${e.message}`));

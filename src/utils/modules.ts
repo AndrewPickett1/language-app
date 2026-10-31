@@ -97,11 +97,13 @@ export type ModuleCompletion = {
   current_lotto_pulls: number;
   max_lotto_pulls: number;
   next_pull_at: string | null;
+  /** How many of the module's words were new to the learner's words. */
+  words_added: number;
 };
 
 /**
- * Records a finished module in `user_modules` on the server, which also keeps the streak and grants a
- * pull the first time. `score` is the lesson's accuracy, 0–100. Throws `MODULE_LOCKED` if the module
+ * Records a finished module in `user_modules` on the server, which also adds the module's words to the
+ * learner's words (`user_words`), keeps the streak and grants a pull the first time. `score` is the lesson's accuracy, 0–100. Throws `MODULE_LOCKED` if the module
  * before it isn't done yet.
  */
 export async function completeModule(id: string, score: number | null): Promise<ModuleCompletion> {
