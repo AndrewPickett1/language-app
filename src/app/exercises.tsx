@@ -8,6 +8,7 @@ import { Screen, ScreenHeader } from '@/components/screen';
 import { Panel, PillButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
 import { useGame } from '@/state/game';
+import { useLanguage } from '@/state/language';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
@@ -26,13 +27,15 @@ type Exercise = {
 export default function ExercisesScreen() {
   const p = usePalette();
   const { reviewCount } = useGame();
+  const { language } = useLanguage();
+  const { M: masc, F: fem } = language.articles;
 
   const exercises: Exercise[] = [
     { title: 'Flashcards', detail: 'Pick the meaning', fill: p.sky, art: <FlashcardsIcon line={p.line} />, href: '/study' },
     { title: 'Matching', detail: 'Pair words up', fill: p.pink, art: <MatchingIcon line={p.line} />, href: '/match' },
     { title: 'Explore', detail: 'Discover new words', fill: p.grape, art: <ExploreIcon line={p.line} />, href: '/explore' },
     { title: 'Spelling', detail: 'Type the word', fill: p.sunshine, art: <SpellingIcon line={p.line} /> },
-    { title: 'Gender', detail: 'El or la?', fill: p.tangerine, art: <GenderArt /> },
+    { title: 'Gender', detail: `${masc.charAt(0).toUpperCase() + masc.slice(1)} or ${fem}?`, fill: p.tangerine, art: <GenderArt masc={masc} fem={fem} />, href: '/gender' },
     { title: 'Conjugate', detail: 'Verb drills', fill: p.leafSoft, art: <ConjugateIcon line={p.line} /> },
   ];
   const rows = [exercises.slice(0, 2), exercises.slice(2, 4), exercises.slice(4, 6)];
@@ -125,8 +128,8 @@ function ExerciseTile({ exercise: { title, detail, fill, art, href, isNew } }: {
   );
 }
 
-/** "el" and "la" stickers, tilted apart. */
-function GenderArt() {
+/** The language's masculine and feminine articles ("el" and "la") as stickers, tilted apart. */
+function GenderArt({ masc, fem }: { masc: string; fem: string }) {
   const p = usePalette();
   const pill = (label: string, fill: string, rotate: string) => (
     <View
@@ -146,8 +149,8 @@ function GenderArt() {
   );
   return (
     <View aria-hidden style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      {pill('el', p.skySoft, '-6deg')}
-      {pill('la', p.pinkSoft, '6deg')}
+      {pill(masc, p.skySoft, '-6deg')}
+      {pill(fem, p.pinkSoft, '6deg')}
     </View>
   );
 }
