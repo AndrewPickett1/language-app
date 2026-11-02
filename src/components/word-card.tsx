@@ -8,12 +8,13 @@ import { RarityBadge } from '@/components/rarity-badge';
 import { SpeakButton } from '@/components/speak-button';
 import { Panel } from '@/components/sticker';
 import { Txt } from '@/components/text';
-import { regularConjugation } from '@/data/conjugations';
 import { RarityInfo } from '@/data/rarity';
 import { Words, bareWord, type Word } from '@/data/words';
+import { useLanguage } from '@/state/language';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke, Themes } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
+import { useConjugation } from '@/utils/conjugations';
 
 type WordCardProps = {
   word: Word;
@@ -27,18 +28,20 @@ type WordCardProps = {
 /**
  * The collectible word card: rarity frame, art window, word panel and example sentence.
  * Verbs get the verb layout: a conjugation table under the word, with tighter panels to make room.
+ * Its forms come from `verb_conjugations`, and any it doesn't have show as dashes.
  */
 export function WordCard({ word, leading, artHeight, style }: WordCardProps) {
   const p = usePalette();
+  const { language } = useLanguage();
   const [artBox, setArtBox] = useState({ width: 0, height: 0 });
   const dotsId = `dots-${useId().replace(/:/g, '')}`;
   const info = RarityInfo[word.rarity];
   // Words from Supabase aren't in the local deck, so they show their database id and no total.
   const deckIndex = Words.indexOf(word);
   const setNumber = (deckIndex >= 0 ? String(deckIndex + 1) : word.id).padStart(3, '0');
-  // The layout follows the word type alone. A verb we can't conjugate yet (French "attendre") still gets the verb card, with blank forms.
+  // The layout follows the word type alone. A verb with no stored conjugation still gets the verb card, with blank forms.
   const verb = word.type === 'Verb';
-  const conjugation = verb ? (word.conjugation ?? regularConjugation(word.word)) : undefined;
+  const conjugation = useConjugation(word);
 
   return (
     <Panel fill={info.color} lift={6} style={[{ gap: 10, padding: Space[3] }, style]}>
@@ -96,12 +99,11 @@ export function WordCard({ word, leading, artHeight, style }: WordCardProps) {
         </Txt>
         <View style={{ flexDirection: 'row', gap: Space[2], marginTop: 6 }}>
           <Chip label={word.type} fill={verb ? Themes.light.skySoft : Themes.light.sunshineSoft} />
-          {conjugation && <Chip label={conjugation.group} fill={Themes.light.leafSoft} />}
           {word.gender && <Chip label={word.gender === 'F' ? 'Feminine' : 'Masculine'} fill={Themes.light.skySoft} />}
         </View>
       </View>
 
-      {verb && <ConjugationPanel conjugation={conjugation} />}
+      {verb && <ConjugationPanel conjugation={conjugation} language={language.code} />}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: Space[2], padding: 14, paddingTop: verb ? 10 : Space[3], paddingBottom: verb ? Space[3] : 14, backgroundColor: p.white, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
         <View style={{ flex: 1, gap: verb ? Space[1] : 6 }}>

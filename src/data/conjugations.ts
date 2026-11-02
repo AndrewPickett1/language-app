@@ -6,58 +6,28 @@ export const Tenses: { id: Tense; label: string }[] = [
   { id: 'future', label: 'Future' },
 ];
 
-/** yo, tú, él/ella, nosotros, vosotros, ellos/ellas: the order every tense's forms are listed in. */
-export const Persons = ['Yo', 'Tú', 'Él / Ella', 'Nosotros', 'Vosotros', 'Ellos / Ellas'] as const;
+/** How `verb_conjugations.person` names the six forms, in the order the card lists them. */
+export const PersonCodes = ['1sg', '2sg', '3sg', '1pl', '2pl', '3pl'] as const;
+export type PersonCode = (typeof PersonCodes)[number];
 
-/** One conjugated form, split so the card can highlight the ending. */
+/** One conjugated form, split so the card can highlight the ending. An irregular form has no ending. */
 export type VerbForm = { stem: string; ending: string };
 
 export type Conjugation = {
-  /** Shown as a chip on the card, e.g. "Regular -ar". */
-  group: string;
-  /** Six forms per tense, in `Persons` order. */
-  forms: Record<Tense, VerbForm[]>;
+  /** Six slots per tense, in `PersonCodes` order. A tense or form with no stored row is missing and shows as a dash. */
+  forms: Partial<Record<Tense, (VerbForm | undefined)[]>>;
 };
-
-const Endings = {
-  ar: {
-    present: ['o', 'as', 'a', 'amos', 'áis', 'an'],
-    past: ['é', 'aste', 'ó', 'amos', 'asteis', 'aron'],
-  },
-  er: {
-    present: ['o', 'es', 'e', 'emos', 'éis', 'en'],
-    past: ['í', 'iste', 'ió', 'imos', 'isteis', 'ieron'],
-  },
-  ir: {
-    present: ['o', 'es', 'e', 'imos', 'ís', 'en'],
-    past: ['í', 'iste', 'ió', 'imos', 'isteis', 'ieron'],
-  },
-};
-const FutureEndings = ['é', 'ás', 'á', 'emos', 'éis', 'án'];
-const ReflexivePronouns = ['me ', 'te ', 'se ', 'nos ', 'os ', 'se '];
 
 /**
- * Placeholder until conjugations are stored: conjugates the infinitive as a regular verb, so
- * irregular verbs (ser, tener, ir…) come out wrong. Reflexive verbs ("levantarse") get their
- * pronoun in front. Returns undefined when the word isn't an -ar/-er/-ir infinitive.
+ * Splits a stored form against its infinitive: the ending is whatever follows the part the two
+ * share, up to the infinitive's stem ("allons" from "aller" → all + ons). A form that shares
+ * nothing with it ("vais") gets no ending, so nothing is highlighted.
  */
-export function regularConjugation(infinitive: string): Conjugation | undefined {
-  const word = infinitive.trim().toLowerCase();
-  const reflexive = /[aei]rse$/.test(word);
-  const verb = reflexive ? word.slice(0, -2) : word;
-  const kind = verb.slice(-2) as keyof typeof Endings;
-  if (!(kind in Endings)) return undefined;
-
-  const stem = verb.slice(0, -2);
-  const pronoun = (i: number) => (reflexive ? ReflexivePronouns[i] : '');
-  const build = (base: string, endings: string[]) => endings.map((ending, i) => ({ stem: pronoun(i) + base, ending }));
-
-  return {
-    group: `Regular -${kind}`,
-    forms: {
-      present: build(stem, Endings[kind].present),
-      past: build(stem, Endings[kind].past),
-      future: build(verb, FutureEndings),
-    },
-  };
+export function splitForm(form: string, infinitive: string): VerbForm {
+  const a = form.toLowerCase();
+  const b = infinitive.trim().toLowerCase();
+  const max = Math.max(0, b.length - 2);
+  let shared = 0;
+  while (shared < max && shared < a.length && a[shared] === b[shared]) shared++;
+  return shared === 0 ? { stem: form, ending: '' } : { stem: form.slice(0, shared), ending: form.slice(shared) };
 }

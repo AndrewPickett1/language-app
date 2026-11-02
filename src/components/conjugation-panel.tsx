@@ -2,20 +2,22 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Txt } from '@/components/text';
-import { Persons, Tenses, type Conjugation, type Tense, type VerbForm } from '@/data/conjugations';
+import { PersonCodes, Tenses, type Conjugation, type Tense, type VerbForm } from '@/data/conjugations';
+import type { LanguageCode } from '@/data/languages';
+import { Pronouns } from '@/data/pronouns';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke, Themes } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
 
 /**
  * The verb card's conjugation table: a tense switch over the six forms, endings highlighted.
- * Every verb card has one. Without a `conjugation` the forms show as dashes.
+ * Every verb card has one. Forms missing from `conjugation` (or all of them, without one) show as dashes.
+ * Each form is labelled with its pronoun in `language` (see `Pronouns`).
  */
-export function ConjugationPanel({ conjugation }: { conjugation?: Conjugation }) {
+export function ConjugationPanel({ conjugation, language }: { conjugation?: Conjugation; language: LanguageCode }) {
   const p = usePalette();
   const [tense, setTense] = useState<Tense>('present');
-  const forms: (VerbForm | undefined)[] = conjugation?.forms[tense] ?? Array.from({ length: Persons.length }, () => undefined);
-  const rows = [0, 2, 4].map((i) => forms.slice(i, i + 2));
+  const forms = conjugation?.forms[tense];
 
   return (
     <View
@@ -52,10 +54,10 @@ export function ConjugationPanel({ conjugation }: { conjugation?: Conjugation })
       </View>
 
       <View style={{ gap: 6 }}>
-        {rows.map((row, r) => (
-          <View key={r} style={{ flexDirection: 'row', gap: 6 }}>
-            {row.map((form, c) => (
-              <FormCell key={c} person={Persons[r * 2 + c]} form={form} />
+        {[0, 2, 4].map((first) => (
+          <View key={first} style={{ flexDirection: 'row', gap: 6 }}>
+            {[first, first + 1].map((i) => (
+              <FormCell key={i} person={Pronouns[language][PersonCodes[i]]} form={forms?.[i]} />
             ))}
           </View>
         ))}

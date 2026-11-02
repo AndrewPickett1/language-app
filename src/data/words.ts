@@ -1,4 +1,3 @@
-import type { Conjugation } from './conjugations';
 import type { Rarity } from './rarity';
 
 export type WordType = 'Noun' | 'Verb' | 'Adjective';
@@ -12,8 +11,6 @@ export type Word = {
   rarity: Rarity;
   example: string;
   exampleMeaning: string;
-  /** Verbs only. Not stored yet, so verb cards fall back to `regularConjugation`. */
-  conjugation?: Conjugation;
 };
 
 /** Every word that can come out of a capsule. */
