@@ -20,3 +20,29 @@ export async function recordWordResults(results: WordResult[]): Promise<void> {
 export function sendWordResults(results: WordResult[]) {
   recordWordResults(results).catch((e: Error) => console.warn(`Couldn't record word results: ${e.message}`));
 }
+
+/** A learner's answer record for one word, from its `user_words` row. */
+export type WordStats = { timesSeen: number; timesCorrect: number; correctStreak: number; lastSeenAt: Date | null };
+
+type WordStatsRow = { word_id: number; times_seen: number; times_correct: number; correct_streak: number; last_seen_at: string | null };
+
+/** The learner's answer stats, keyed by word id. Words without a `user_words` row aren't in it. */
+export async function fetchWordStats(userId: string): Promise<Record<string, WordStats>> {
+  const { data, error } = await supabase
+    .from('user_words')
+    .select('word_id, times_seen, times_correct, correct_streak, last_seen_at')
+    .eq('user_id', userId)
+    .overrideTypes<WordStatsRow[], { merge: false }>();
+  if (error) throw new Error(error.message);
+  // A word won twice has two rows, which record_word_results updates alike, so either will do.
+  const stats: Record<string, WordStats> = {};
+  for (const row of data) {
+    stats[String(row.word_id)] = {
+      timesSeen: row.times_seen,
+      timesCorrect: row.times_correct,
+      correctStreak: row.correct_streak,
+      lastSeenAt: row.last_seen_at ? new Date(row.last_seen_at) : null,
+    };
+  }
+  return stats;
+}

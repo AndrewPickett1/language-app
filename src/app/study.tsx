@@ -16,7 +16,9 @@ import { StreakPopup } from '@/components/streak-popup';
 import { Panel, PillButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
 import { RarityInfo } from '@/data/rarity';
+import { pickStudyWords } from '@/data/word-priority';
 import type { Word } from '@/data/words';
+import { useAuth } from '@/state/auth';
 import { useGame } from '@/state/game';
 import { useLanguage } from '@/state/language';
 import { useLotto } from '@/state/lotto';
@@ -27,6 +29,7 @@ import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
 import type { BonusPullRow } from '@/utils/lotto';
 import { fetchDeck } from '@/utils/word-rows';
+import { fetchWordStats, type WordStats } from '@/utils/word-stats';
 
 const SessionLength = 10;
 
@@ -42,12 +45,13 @@ function shuffle<T>(items: T[]): T[] {
 }
 
 /**
- * Ten questions from the learner's words, `focusId` first. Wrong options come from the
- * language's whole deck plus the learner's words, and prefer the same word type.
+ * Ten questions from the learner's words, `focusId` first, then the words `pickStudyWords` ranks highest
+ * (see `src/data/word-priority.ts`), in random order. Wrong options come from the language's whole deck
+ * plus the learner's words, and prefer the same word type.
  */
-function buildSession(collected: Word[], deck: Word[], focusId?: string): Question[] {
+function buildSession(collected: Word[], deck: Word[], stats: Record<string, WordStats>, focusId?: string): Question[] {
   const focus = collected.find((w) => w.id === focusId);
-  const rest = shuffle(collected.filter((w) => w !== focus));
+  const rest = shuffle(pickStudyWords(collected.filter((w) => w !== focus), stats, focus ? SessionLength - 1 : SessionLength));
   const picks = focus ? [focus, ...rest] : rest;
   const words = Array.from({ length: Math.min(SessionLength, Math.max(picks.length, 1) * 2) }, (_, i) => picks[i % picks.length]);
 
@@ -66,21 +70,29 @@ function buildSession(collected: Word[], deck: Word[], focusId?: string): Questi
 export default function StudyScreen() {
   const { word: focusId } = useLocalSearchParams<{ word?: string }>();
   const { language } = useLanguage();
+  const { user } = useAuth();
+  const userId = user?.id;
   const myWords = useMyWords();
-  const [deck, setDeck] = useState<{ language: string; words: Word[] }>();
+  const [deck, setDeck] = useState<{ language: string; words: Word[]; stats: Record<string, WordStats> }>();
 
   useEffect(() => {
+    if (!userId) return;
     let live = true;
-    // The deck only supplies wrong answers, so if it fails to load the learner's own words stand in.
-    fetchDeck(language.name)
-      .catch(() => [])
-      .then((words) => {
-        if (live) setDeck({ language: language.name, words });
-      });
+    Promise.all([
+      // The deck only supplies wrong answers, so if it fails to load the learner's own words stand in.
+      fetchDeck(language.name).catch(() => []),
+      // Stats only order the words, so without them every word reads as new and the order is random.
+      fetchWordStats(userId).catch((e: Error) => {
+        console.warn(`Couldn't load word stats: ${e.message}`);
+        return {};
+      }),
+    ]).then(([words, stats]) => {
+      if (live) setDeck({ language: language.name, words, stats });
+    });
     return () => {
       live = false;
     };
-  }, [language.name]);
+  }, [language.name, userId]);
 
   if (myWords.loading || deck?.language !== language.name) {
     return <StudyMessage title="Shuffling cards…" detail={`Getting your ${language.name} words ready.`} loading />;
@@ -89,10 +101,10 @@ export default function StudyScreen() {
     return <StudyMessage title="Couldn't load" detail={`We couldn't load your words. ${myWords.error}`} />;
   }
   // Built once, so a refresh of My words mid-session doesn't reshuffle the questions.
-  return <StudySession words={myWords.words} deck={deck.words} focusId={focusId} />;
+  return <StudySession words={myWords.words} deck={deck.words} stats={deck.stats} focusId={focusId} />;
 }
 
-function StudySession({ words, deck, focusId }: { words: Word[]; deck: Word[]; focusId?: string }) {
+function StudySession({ words, deck, stats, focusId }: { words: Word[]; deck: Word[]; stats: Record<string, WordStats>; focusId?: string }) {
   const p = usePalette();
   const insets = useSafeAreaInsets();
   const game = useGame();
@@ -100,7 +112,7 @@ function StudySession({ words, deck, focusId }: { words: Word[]; deck: Word[]; f
   const lotto = useLotto();
   const { language } = useLanguage();
   const [bonus, setBonus] = useState<BonusPullRow | null>(null);
-  const [session] = useState(() => buildSession(words, deck, focusId));
+  const [session] = useState(() => buildSession(words, deck, stats, focusId));
   const [qi, setQi] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
   const [score, setScore] = useState(0);

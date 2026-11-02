@@ -97,6 +97,8 @@ function MatchRound({ words, onAgain }: { words: Word[]; onAgain: () => void }) 
   const [justMatched, setJustMatched] = useState<string | null>(null);
   const [combo, setCombo] = useState(0);
   const [mistakes, setMistakes] = useState(0);
+  // Words already recorded wrong this round, so each word sends one result: wrong on its first miss, or right if matched without one.
+  const [missed, setMissed] = useState<string[]>([]);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const finished = matched.length === pairs.length;
@@ -131,7 +133,7 @@ function MatchRound({ words, onAgain }: { words: Word[]; onAgain: () => void }) 
       setCombo((c) => c + 1);
       setJustMatched(left);
       later(() => setJustMatched(null), 900);
-      game.recordAnswer(left, true);
+      if (!missed.includes(left)) game.recordAnswer(left, true);
       if (next.length === pairs.length) {
         lotto
           .claimBonus('match')
@@ -143,7 +145,10 @@ function MatchRound({ words, onAgain }: { words: Word[]; onAgain: () => void }) 
       setWrong({ left, right });
       setMistakes((m) => m + 1);
       setCombo(0);
-      game.recordAnswer(left, false);
+      if (!missed.includes(left)) {
+        setMissed([...missed, left]);
+        game.recordAnswer(left, false);
+      }
       later(() => {
         setWrong(null);
         setSelLeft(null);
