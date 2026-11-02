@@ -306,7 +306,7 @@ function StudyMessage({ title, detail, loading = false }: { title: string; detai
           {detail}
         </Txt>
       </View>
-      {!loading && <PillButton label="Keep going" fill={p.pink} style={{ alignSelf: 'stretch' }} onPress={() => router.dismissTo('/')} />}
+      {!loading && <PillButton label="Continue" fill={p.pink} style={{ alignSelf: 'stretch' }} onPress={() => router.dismissTo('/')} />}
     </Screen>
   );
 }

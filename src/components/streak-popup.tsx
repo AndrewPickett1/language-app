@@ -133,7 +133,7 @@ function StreakCard({ reason, streak, onClose }: Props) {
         <StreakDays days={bumped ? days : days.map((d, i) => (i === days.length - 1 ? { ...d, status: 'pending' } : d))} size={26} popToday={bumped} />
       </View>
 
-      <PillButton label="Keep going" fill={p.pink} onPress={onClose} style={{ alignSelf: 'stretch' }} />
+      <PillButton label="Continue" fill={p.pink} onPress={onClose} style={{ alignSelf: 'stretch' }} />
     </Panel>
   );
 }

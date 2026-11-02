@@ -27,7 +27,7 @@ type Props = {
   earnedPull: boolean;
 };
 
-/** One big moment. Stats never count mistakes. A granted pull shows the capsule; otherwise just Keep going. */
+/** One big moment. Stats never count mistakes. A granted pull shows the capsule; otherwise just Continue. */
 export function ModuleDone({ unit, title, lesson, words, bestCombo, accuracy, earnedPull }: Props) {
   const p = usePalette();
   const jump = useSharedValue(0);
@@ -90,7 +90,7 @@ export function ModuleDone({ unit, title, lesson, words, bestCombo, accuracy, ea
           </Pressable>
         </>
       ) : (
-        <PillButton label="Keep going" fill={p.pink} style={{ alignSelf: 'stretch', minHeight: 60 }} onPress={() => goBack('/level-map')} />
+        <PillButton label="Continue" fill={p.pink} style={{ alignSelf: 'stretch', minHeight: 60 }} onPress={() => goBack('/level-map')} />
       )}
     </Screen>
   );

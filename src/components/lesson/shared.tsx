@@ -142,7 +142,7 @@ export function FeedbackSheet({ feedback, onNext }: { feedback: Feedback; onNext
           </Txt>
         </View>
       </View>
-      <PillButton label={feedback.cta ?? (right ? 'Keep going' : 'Got it')} fill={right ? p.leaf : p.sunshine} onPress={onNext} />
+      <PillButton label={feedback.cta ?? (right ? 'Continue' : 'Got it')} fill={right ? p.leaf : p.sunshine} onPress={onNext} />
     </Animated.View>
   );
 }

@@ -230,7 +230,7 @@ function GenderSession({ pool, onAgain }: { pool: GenderNoun[]; onAgain: () => v
               </Txt>
             )}
           </View>
-          <PillButton label={last ? 'Finish' : right ? 'Keep going' : 'Got it'} fill={right ? p.leaf : p.sunshine} onPress={next} />
+          <PillButton label={last ? 'Finish' : right ? 'Continue' : 'Got it'} fill={right ? p.leaf : p.sunshine} onPress={next} />
         </Animated.View>
       )}
     </View>
