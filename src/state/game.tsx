@@ -8,6 +8,7 @@ import { useLotto } from '@/state/lotto';
 import { useMyWords } from '@/state/my-words';
 import { supabase } from '@/utils/supabase';
 import { fetchDeck } from '@/utils/word-rows';
+import { sendWordResults } from '@/utils/word-stats';
 
 export type { PullResult };
 
@@ -24,6 +25,7 @@ type Game = GameState & {
   reviewCount: number;
   /** Spends a pull on the server and draws from the current language's words. Null when no pulls are left; throws if the fetch fails. */
   pull: () => Promise<PullResult | null>;
+  /** Counts an exercise answer toward mastery and records it on the learner's `user_words` row. */
   recordAnswer: (id: string, right: boolean) => void;
 };
 
@@ -45,6 +47,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // Stable across renders so screens can use them in effects.
   const recordAnswer = useCallback((id: string, right: boolean) => {
+    sendWordResults([{ wordId: id, correct: right }]);
     if (!right) return;
     setState((s) => ({ ...s, correct: { ...s.correct, [id]: (s.correct[id] ?? 0) + 1 } }));
   }, []);

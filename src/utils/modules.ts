@@ -9,6 +9,7 @@ import { useMyWords } from '@/state/my-words';
 import { useStreak } from '@/state/streak';
 import { supabase } from '@/utils/supabase';
 import { WordColumns, fetchDeckRows, toWord, type WordRow } from '@/utils/word-rows';
+import { sendWordResults, type WordResult } from '@/utils/word-stats';
 
 type Row = ModuleRow & { language: { name: string } | null };
 
@@ -142,6 +143,7 @@ export async function completeModule(id: string, score: number | null): Promise<
  * Finishing a module from a lesson screen. `finish(score)` records it on the server once, then reloads
  * pulls, the streak and (if any were added) the learner's words, which come from the server rather than
  * being counted here. `earnedPull` turns true when the server granted a pull, only on a first completion.
+ * `results` are the lesson's word sightings, sent once the module's words are in `user_words`.
  */
 export function useFinishModule(id: string) {
   const lotto = useLotto();
@@ -150,15 +152,20 @@ export function useFinishModule(id: string) {
   const [earnedPull, setEarnedPull] = useState(false);
   const claimed = useRef(false);
 
-  const finish = (score: number | null) => {
+  const finish = (score: number | null, results: WordResult[] = []) => {
     if (claimed.current) return;
     claimed.current = true;
     completeModule(id, score)
       .then(async (row) => {
+        sendWordResults(results);
         await Promise.all([lotto.refresh(), streak.refresh('study'), row.words_added > 0 && myWords.refresh()]);
         if (row.pull_granted) setEarnedPull(true);
       })
-      .catch((e: Error) => console.warn(`Couldn't record the finished module: ${e.message}`));
+      .catch((e: Error) => {
+        console.warn(`Couldn't record the finished module: ${e.message}`);
+        // Words the learner already owned still get their stats.
+        sendWordResults(results);
+      });
   };
 
   return { finish, earnedPull };

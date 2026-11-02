@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { Capsule } from '@/components/art/capsule';
@@ -23,6 +23,7 @@ import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
 import { fetchLesson, fetchLessonDeck, useFinishModule, type Lesson } from '@/utils/modules';
+import { sendWordResults, type WordResult } from '@/utils/word-stats';
 
 type Loaded = { id: string; lesson: Lesson | null; deck: LessonWord[]; error: string | null };
 
@@ -74,8 +75,19 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
   const [stats, setStats] = useState<Stats>({ combo: 0, best: 0, right: 0, total: 0 });
   const teachesArticles = lesson.words.some((w) => w.kind === 'Article');
   const firstGender = steps.findIndex((s) => s.kind === 'gender');
+  // Word sightings for user_words. The module's words only become the learner's when it's finished, so
+  // they're sent then (or, for words already owned, when the learner quits).
+  const seen = useRef<WordResult[]>([]);
 
-  const record = (right: boolean) => {
+  useEffect(() => {
+    const pending = seen.current;
+    return () => {
+      sendWordResults(pending.splice(0));
+    };
+  }, []);
+
+  const record = (right: boolean, wordId: string) => {
+    seen.current.push({ wordId, correct: right });
     setStats((s) => {
       const combo = right ? s.combo + 1 : 0;
       return { combo, best: Math.max(s.best, combo), right: s.right + (right ? 1 : 0), total: s.total + 1 };
@@ -84,8 +96,9 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
 
   // A wrong answer comes back once at the end of the lesson.
   const answer = (right: boolean, next: Feedback) => {
-    record(right);
     const step = steps[index];
+    if (step.kind === 'gender') record(right, step.noun.id);
+    else if (step.kind === 'meaning' || step.kind === 'pick' || step.kind === 'listen') record(right, step.word.id);
     if (!right && !step.retry && RetryKinds.includes(step.kind)) {
       setSteps((s) => [...s, { ...step, key: `${step.key}-retry`, retry: true }]);
     }
@@ -99,7 +112,7 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
     const next = index + 1;
     setIndex(next);
     // Finishing records the module as done and keeps the streak. The first time, it also earns a pull.
-    if (next >= steps.length) finish(accuracy);
+    if (next >= steps.length) finish(accuracy, seen.current.splice(0));
   };
 
   if (index >= steps.length) {
@@ -140,7 +153,16 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
           trailing={step.kind === 'meet' ? <NewBadge /> : <ComboChip combo={stats.combo} />}
         />
 
-        {step.kind === 'meet' && <MeetWord key={step.key} word={step.word} onDone={advance} />}
+        {step.kind === 'meet' && (
+          <MeetWord
+            key={step.key}
+            word={step.word}
+            onDone={() => {
+              seen.current.push({ wordId: step.word.id, correct: null });
+              advance();
+            }}
+          />
+        )}
         {(step.kind === 'meaning' || step.kind === 'pick' || step.kind === 'listen') && (
           <ChoiceQuiz key={step.key} kind={step.kind} word={step.word} options={step.options} retry={step.retry} onAnswer={answer} />
         )}

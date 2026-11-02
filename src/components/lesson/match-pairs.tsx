@@ -15,8 +15,8 @@ import { usePalette } from '@/theme/use-palette';
 
 type Props = {
   words: LessonWord[];
-  /** Each pair tried, right or wrong, for the combo and accuracy. */
-  onTry: (right: boolean) => void;
+  /** Each pair tried, right or wrong, for the combo and accuracy. `wordId` is the word on the left tile. */
+  onTry: (right: boolean, wordId: string) => void;
   onDone: (feedback: Feedback) => void;
 };
 
@@ -67,11 +67,11 @@ export function MatchPairs({ words, onTry, onDone }: Props) {
       setMatched(next);
       setSelLeft(null);
       setSelRight(null);
-      onTry(true);
+      onTry(true, left);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setWrong({ left, right: rightId });
-      onTry(false);
+      onTry(false, left);
       timers.current.push(
         setTimeout(() => {
           setWrong(null);
