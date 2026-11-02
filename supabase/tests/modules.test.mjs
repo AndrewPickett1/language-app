@@ -116,3 +116,50 @@ test('a locked module adds no words', async () => {
   await assert.rejects(complete(db, A, 11), /MODULE_LOCKED/);
   assert.deepEqual(await wordIds(db, A), []);
 });
+
+/** The test modules after the lesson migration: [position, title, type] in order. */
+async function frenchModules(db) {
+  const { rows } = await db.query(`select position, title, module_type from public.modules where language_id = 1 order by position`);
+  return rows.map((r) => [r.position, r.title, r.module_type]);
+}
+
+test('the Genders lesson goes in after the first module and moves the rest along', async () => {
+  const db = await setup();
+  // The unit column comes from a migration that also touches word_type, which these stubs don't have.
+  await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
+  await db.exec(`insert into public.modules (id, language_id, position, title) values (12, 1, 2, 'Articles');`);
+  await db.exec(migration('20261031130000_lesson_modules.sql'));
+  const expected = [
+    [0, 'Hello', 'Exercise'],
+    [1, 'Genders', 'Lesson'],
+    [2, 'Yes and no', 'Exercise'],
+    [3, 'Articles', 'Exercise'],
+  ];
+  assert.deepEqual(await frenchModules(db), expected);
+
+  // Running it again changes nothing.
+  await db.exec(migration('20261031130000_lesson_modules.sql'));
+  assert.deepEqual(await frenchModules(db), expected);
+});
+
+test('a lesson has no words, and finishing it unlocks the next module', async () => {
+  const db = await setup();
+  await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
+  await db.exec(migration('20261031130000_lesson_modules.sql'));
+  const { rows } = await db.query(`select id from public.modules where lesson_key = 'genders'`);
+  const lesson = rows[0].id;
+
+  await complete(db, A, 10);
+  await assert.rejects(complete(db, A, 11), /MODULE_LOCKED/);
+  const done = await as(db, A, `select * from public.complete_module($1, null)`, [lesson]);
+  assert.equal(done.rows[0].words_added, 0);
+  assert.equal(done.rows[0].pull_granted, true);
+  assert.equal((await complete(db, A, 11)).words_added, 1);
+});
+
+test('only Lesson modules can have a lesson key', async () => {
+  const db = await setup();
+  await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
+  await db.exec(migration('20261031130000_lesson_modules.sql'));
+  await assert.rejects(db.exec(`update public.modules set lesson_key = 'nope' where id = 10;`), /check/);
+});

@@ -1,10 +1,12 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { Capsule } from '@/components/art/capsule';
 import { LottoMascot } from '@/components/art/lotto-mascot';
 import { ChoiceQuiz } from '@/components/lesson/choice-quiz';
+import { ConceptLesson } from '@/components/lesson/concept-lesson';
+import { ConceptLessons } from '@/components/lesson/concepts';
 import { GenderPick } from '@/components/lesson/gender-pick';
 import { MatchPairs } from '@/components/lesson/match-pairs';
 import { MeetWord } from '@/components/lesson/meet-word';
@@ -16,17 +18,18 @@ import { PillButton } from '@/components/sticker';
 import { Txt } from '@/components/text';
 import { buildLesson, RetryKinds, type LessonWord, type Step } from '@/data/lesson';
 import { useLanguage } from '@/state/language';
-import { useLotto } from '@/state/lotto';
-import { useMyWords } from '@/state/my-words';
 import { useStreak } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
-import { completeModule, fetchLesson, fetchLessonDeck, type Lesson } from '@/utils/modules';
+import { fetchLesson, fetchLessonDeck, useFinishModule, type Lesson } from '@/utils/modules';
 
 type Loaded = { id: string; lesson: Lesson | null; deck: LessonWord[]; error: string | null };
 
-/** A Learn module, opened from the level map: its words taught through the Level 1 exercise types. */
+/**
+ * A Learn module, opened from the level map. An Exercise module teaches its words through the Level 1
+ * exercise types. A Lesson module walks through a concept on slides instead.
+ */
 export default function LessonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { language } = useLanguage();
@@ -49,6 +52,11 @@ export default function LessonScreen() {
   const current = loaded?.id === id ? loaded : undefined;
   if (!current) return <LessonMessage title="Opening the capsule…" detail="Getting your lesson ready." loading />;
   if (!current.lesson) return <LessonMessage title="Couldn't load" detail={`We couldn't open this module. ${current.error ?? ''}`} />;
+  if (current.lesson.type === 'Lesson') {
+    const slides = current.lesson.lessonKey ? ConceptLessons[current.lesson.lessonKey] : undefined;
+    if (!slides) return <LessonMessage title="Nothing here yet" detail="This lesson isn't in this version of the app yet." />;
+    return <ConceptLesson lesson={current.lesson} slides={slides} />;
+  }
   if (current.lesson.words.length === 0) return <LessonMessage title="Nothing here yet" detail="This module doesn't have any words yet." />;
   // Built once, so nothing reshuffles mid-lesson.
   return <LessonSession lesson={current.lesson} deck={current.deck} />;
@@ -58,15 +66,12 @@ type Stats = { combo: number; best: number; right: number; total: number };
 
 function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] }) {
   const p = usePalette();
-  const lotto = useLotto();
   const streak = useStreak();
-  const myWords = useMyWords();
+  const { finish, earnedPull } = useFinishModule(lesson.id);
   const [steps, setSteps] = useState<Step[]>(() => buildLesson(lesson.words, deck));
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [stats, setStats] = useState<Stats>({ combo: 0, best: 0, right: 0, total: 0 });
-  const [earnedPull, setEarnedPull] = useState(false);
-  const claimed = useRef(false);
   const teachesArticles = lesson.words.some((w) => w.kind === 'Article');
   const firstGender = steps.findIndex((s) => s.kind === 'gender');
 
@@ -93,17 +98,8 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
     setFeedback(null);
     const next = index + 1;
     setIndex(next);
-    if (next >= steps.length && !claimed.current) {
-      // Finishing records the module as done and keeps the streak. The first time, it also earns a pull.
-      claimed.current = true;
-      completeModule(lesson.id, accuracy)
-        .then(async (row) => {
-          // Pulls, the streak and the learner's words come from the server, so reload them rather than counting here.
-          await Promise.all([lotto.refresh(), streak.refresh('study'), row.words_added > 0 && myWords.refresh()]);
-          if (row.pull_granted) setEarnedPull(true);
-        })
-        .catch((e: Error) => console.warn(`Couldn't record the finished module: ${e.message}`));
-    }
+    // Finishing records the module as done and keeps the streak. The first time, it also earns a pull.
+    if (next >= steps.length) finish(accuracy);
   };
 
   if (index >= steps.length) {

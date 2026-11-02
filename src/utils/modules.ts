@@ -1,9 +1,12 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import type { LessonWord } from '@/data/lesson';
-import { buildLevelMap, type MapUnit, type ModuleRow } from '@/data/level-map';
+import { buildLevelMap, type MapUnit, type ModuleRow, type ModuleType } from '@/data/level-map';
 import { useLanguage } from '@/state/language';
+import { useLotto } from '@/state/lotto';
+import { useMyWords } from '@/state/my-words';
+import { useStreak } from '@/state/streak';
 import { supabase } from '@/utils/supabase';
 import { WordColumns, fetchDeckRows, toWord, type WordRow } from '@/utils/word-rows';
 
@@ -16,7 +19,7 @@ type Row = ModuleRow & { language: { name: string } | null };
 export async function fetchModules(languageName: string): Promise<ModuleRow[]> {
   const { data, error } = await supabase
     .from('modules')
-    .select('id, unit, position, title, description, words:module_words(count), done:user_modules(best_score), language:language_id!inner(name)')
+    .select('id, unit, position, title, description, module_type, words:module_words(count), done:user_modules(best_score), language:language_id!inner(name)')
     .ilike('language.name', languageName)
     .order('unit')
     .order('position')
@@ -55,13 +58,24 @@ export function useLevelMap() {
   return { units: current?.units, error: current?.error ?? null };
 }
 
-export type Lesson = { id: string; unit: number; title: string; description: string | null; words: LessonWord[] };
+export type Lesson = {
+  id: string;
+  unit: number;
+  title: string;
+  description: string | null;
+  type: ModuleType;
+  /** For a Lesson module, which slide lesson it shows (see `ConceptLessons`). */
+  lessonKey: string | null;
+  words: LessonWord[];
+};
 
 type LessonRow = {
   id: number;
   unit: number;
   title: string;
   description: string | null;
+  module_type: ModuleType | null;
+  lesson_key: string | null;
   words: { position: number; word: WordRow | null }[];
 };
 
@@ -69,18 +83,26 @@ export function toLessonWord(row: WordRow): LessonWord {
   return { ...toWord(row), kind: row.word_type };
 }
 
-/** One module and its words, in teaching order. */
+/** One module and its words, in teaching order. A Lesson module has none. */
 export async function fetchLesson(id: string): Promise<Lesson> {
   const { data, error } = await supabase
     .from('modules')
-    .select(`id, unit, title, description, words:module_words(position, word:word_id(${WordColumns}))`)
+    .select(`id, unit, title, description, module_type, lesson_key, words:module_words(position, word:word_id(${WordColumns}))`)
     .eq('id', Number(id))
     .maybeSingle()
     .overrideTypes<LessonRow, { merge: false }>();
   if (error) throw new Error(error.message);
   if (!data) throw new Error("That module doesn't exist.");
   const words = [...data.words].sort((a, b) => a.position - b.position).flatMap((w) => (w.word ? [toLessonWord(w.word)] : []));
-  return { id: String(data.id), unit: data.unit, title: data.title, description: data.description, words };
+  return {
+    id: String(data.id),
+    unit: data.unit,
+    title: data.title,
+    description: data.description,
+    type: data.module_type ?? 'Exercise',
+    lessonKey: data.lesson_key,
+    words,
+  };
 }
 
 /** The language's whole deck with each word's kind, for wrong answers and gender practice. */
@@ -114,4 +136,30 @@ export async function completeModule(id: string, score: number | null): Promise<
   if (error) throw new Error(error.message);
   if (!data) throw new Error('complete_module returned nothing.');
   return data;
+}
+
+/**
+ * Finishing a module from a lesson screen. `finish(score)` records it on the server once, then reloads
+ * pulls, the streak and (if any were added) the learner's words, which come from the server rather than
+ * being counted here. `earnedPull` turns true when the server granted a pull, only on a first completion.
+ */
+export function useFinishModule(id: string) {
+  const lotto = useLotto();
+  const streak = useStreak();
+  const myWords = useMyWords();
+  const [earnedPull, setEarnedPull] = useState(false);
+  const claimed = useRef(false);
+
+  const finish = (score: number | null) => {
+    if (claimed.current) return;
+    claimed.current = true;
+    completeModule(id, score)
+      .then(async (row) => {
+        await Promise.all([lotto.refresh(), streak.refresh('study'), row.words_added > 0 && myWords.refresh()]);
+        if (row.pull_granted) setEarnedPull(true);
+      })
+      .catch((e: Error) => console.warn(`Couldn't record the finished module: ${e.message}`));
+  };
+
+  return { finish, earnedPull };
 }

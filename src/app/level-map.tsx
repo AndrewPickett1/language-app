@@ -188,35 +188,6 @@ function Mascot({ module: m, width }: { module: MapModule; width: number }) {
   );
 }
 
-function UpNext({ module: m, half }: { module: MapModule; half: number }) {
-  const p = usePalette();
-  const bob = useBob();
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        {
-          position: 'absolute',
-          left: m.x - 52,
-          top: m.y - half - 42,
-          width: 104,
-          height: 28,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: p.surfaceRaised,
-          borderColor: p.line,
-          borderWidth: Stroke[2],
-          borderRadius: Radius.pill,
-        },
-        bob,
-      ]}>
-      <Txt variant="caption" color={p.onBright}>
-        Up next
-      </Txt>
-    </Animated.View>
-  );
-}
-
 type ModuleNodeProps = { module: MapModule; selected: boolean; onPress: () => void };
 
 /** A capsule on the road: coloured by status, with its name below and stars once done. */
@@ -244,7 +215,6 @@ function ModuleNode({ module: m, selected, onPress }: ModuleNodeProps) {
           }}
         />
       )}
-      {m.status === 'current' && <UpNext module={m} half={half} />}
 
       <View pointerEvents="none" style={{ position: 'absolute', left: m.x - 80, top: m.y + half + 16, width: 160, alignItems: 'center' }}>
         <View style={{ paddingHorizontal: Space[2], paddingVertical: 1, borderRadius: Radius.sm, backgroundColor: p.surface }}>
@@ -259,7 +229,7 @@ function ModuleNode({ module: m, selected, onPress }: ModuleNodeProps) {
 
       <Sticker
         accessibilityRole="button"
-        accessibilityLabel={`${m.name}, ${m.wordCount} words, ${StatusText[m.status]}`}
+        accessibilityLabel={`${m.name}, ${m.type === 'Lesson' ? 'lesson' : `${m.wordCount} words`}, ${StatusText[m.status]}`}
         accessibilityState={{ selected, disabled: m.status === 'locked' }}
         fill={p.paper}
         borderWidth={Stroke[3]}

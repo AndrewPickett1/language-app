@@ -7,10 +7,14 @@
 
 export type ModuleStatus = 'done' | 'current' | 'locked' | 'reward';
 
+/** Exercise modules teach words. Lesson modules teach a concept through slides and have no words. */
+export type ModuleType = 'Exercise' | 'Lesson';
+
 export type MapModule = {
   id: string;
   name: string;
   description: string | null;
+  type: ModuleType;
   wordCount: number;
   /** Short text on the capsule. */
   glyph: string;
@@ -36,6 +40,8 @@ export type ModuleRow = {
   position: number;
   title: string;
   description: string | null;
+  /** Null counts as Exercise, the column's default. */
+  module_type: ModuleType | null;
   words: { count: number }[];
   /** The learner's `user_modules` row, if they've finished it. */
   done: { best_score: number | null }[];
@@ -72,6 +78,7 @@ export function buildLevelMap(rows: ModuleRow[]): MapUnit[] {
         id: String(row.id),
         name: row.title,
         description: row.description,
+        type: row.module_type ?? 'Exercise',
         wordCount: row.words[0]?.count ?? 0,
         glyph: String(i + 1),
         status: row.done.length > 0 ? 'done' : row === next ? 'current' : 'locked',

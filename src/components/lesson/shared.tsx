@@ -3,7 +3,7 @@ import { View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { SlideInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LottoMascot } from '@/components/art/lotto-mascot';
+import { LottoMascot, type MascotPose } from '@/components/art/lotto-mascot';
 import { CheckIcon, CloseIcon } from '@/components/icons';
 import { PillButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
@@ -15,11 +15,11 @@ import { usePalette } from '@/theme/use-palette';
 export type Feedback = { right: boolean; title: string; text: string; cta?: string };
 
 /** Lotto with a pink speech bubble: the prompt at the top of a lesson step. */
-export function MascotPrompt({ text, pose = 'wave' }: { text: string; pose?: 'cheer' | 'wave' | 'think' | 'oops' }) {
+export function MascotPrompt({ text, pose = 'wave', mascotWidth = 60 }: { text: ReactNode; pose?: MascotPose; mascotWidth?: number }) {
   const p = usePalette();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: Space[2] }}>
-      <LottoMascot line={p.line} width={60} pose={pose} />
+      <LottoMascot line={p.line} width={mascotWidth} pose={pose} />
       <View
         style={{
           flex: 1,
