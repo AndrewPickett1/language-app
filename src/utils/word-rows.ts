@@ -25,13 +25,19 @@ export async function fetchDeck(languageName: string): Promise<Word[]> {
   return (await fetchDeckRows(languageName)).map(toWord);
 }
 
+/** The words a Lotto pull can draw: the deck without those whose `lotto_eligible` is false. */
+export async function fetchLottoDeck(languageName: string): Promise<Word[]> {
+  return (await fetchDeckRows(languageName, { lottoOnly: true })).map(toWord);
+}
+
 /** The deck as raw rows, for callers that need the database's own `word_type`. */
-export async function fetchDeckRows(languageName: string): Promise<WordRow[]> {
-  const { data, error } = await supabase
+export async function fetchDeckRows(languageName: string, { lottoOnly = false } = {}): Promise<WordRow[]> {
+  let query = supabase
     .from('words')
     .select(WordColumns.replace('language:language_id(name)', 'language:language_id!inner(name)'))
-    .ilike('language.name', languageName)
-    .overrideTypes<WordRow[], { merge: false }>();
+    .ilike('language.name', languageName);
+  if (lottoOnly) query = query.eq('lotto_eligible', true);
+  const { data, error } = await query.overrideTypes<WordRow[], { merge: false }>();
   if (error) throw new Error(error.message);
   return data;
 }

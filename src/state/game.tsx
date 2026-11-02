@@ -7,7 +7,7 @@ import { useLanguage } from '@/state/language';
 import { useLotto } from '@/state/lotto';
 import { useMyWords } from '@/state/my-words';
 import { supabase } from '@/utils/supabase';
-import { fetchDeck } from '@/utils/word-rows';
+import { fetchLottoDeck } from '@/utils/word-rows';
 import { sendWordResults } from '@/utils/word-stats';
 
 export type { PullResult };
@@ -59,7 +59,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (lotto.currentPulls <= 0) return null;
       // Draw before spending, so a failed deck fetch costs nothing.
       // TODO: use word_id from spend_lotto_pull once the server picker exists
-      const deck = await fetchDeck(language.name);
+      const deck = await fetchLottoDeck(language.name);
       if (deck.length === 0) throw new Error(`There are no ${language.name} words to pull yet.`);
       const result = drawWord([...myWords.collected, ...state.collected], deck);
       if (result.isNew && !userId) throw new Error('Sign in to keep the words you win.');
