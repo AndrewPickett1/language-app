@@ -40,7 +40,7 @@ async function setup() {
   // Supabase grants table access to the API roles by default; the migration narrows user_words.
   await db.exec(`grant all on public.user_words, public.words to anon, authenticated;`);
   await db.exec(migration('20261102003120_add_answer_stats_to_user_words.sql'));
-  await db.exec(migration('20261102120000_record_word_results.sql'));
+  await db.exec(migration('20261102003725_record_word_results.sql'));
   return db;
 }
 

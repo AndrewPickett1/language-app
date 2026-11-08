@@ -51,7 +51,7 @@ async function setup() {
   await db.exec(migration('20261025221934_create_modules.sql'));
   await db.exec(migration('20261029235228_module_completion_tracking.sql'));
   await db.exec(migration('20261029235238_complete_module_fix_reward_vars.sql'));
-  await db.exec(migration('20261031120000_complete_module_adds_words.sql'));
+  await db.exec(migration('20261031153415_complete_module_adds_words.sql'));
   await db.exec(`grant all on public.user_words, public.words, public.user_streaks to anon, authenticated;`);
   // Two modules in order: the first teaches words 1–3, the second words 3–4.
   await db.exec(`
@@ -128,7 +128,7 @@ test('the Genders lesson goes in after the first module and moves the rest along
   // The unit column comes from a migration that also touches word_type, which these stubs don't have.
   await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
   await db.exec(`insert into public.modules (id, language_id, position, title) values (12, 1, 2, 'Articles');`);
-  await db.exec(migration('20261031130000_lesson_modules.sql'));
+  await db.exec(migration('20261031172943_lesson_modules.sql'));
   const expected = [
     [0, 'Hello', 'Exercise'],
     [1, 'Genders', 'Lesson'],
@@ -138,14 +138,14 @@ test('the Genders lesson goes in after the first module and moves the rest along
   assert.deepEqual(await frenchModules(db), expected);
 
   // Running it again changes nothing.
-  await db.exec(migration('20261031130000_lesson_modules.sql'));
+  await db.exec(migration('20261031172943_lesson_modules.sql'));
   assert.deepEqual(await frenchModules(db), expected);
 });
 
 test('a lesson has no words, and finishing it unlocks the next module', async () => {
   const db = await setup();
   await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
-  await db.exec(migration('20261031130000_lesson_modules.sql'));
+  await db.exec(migration('20261031172943_lesson_modules.sql'));
   const { rows } = await db.query(`select id from public.modules where lesson_key = 'genders'`);
   const lesson = rows[0].id;
 
@@ -160,6 +160,6 @@ test('a lesson has no words, and finishing it unlocks the next module', async ()
 test('only Lesson modules can have a lesson key', async () => {
   const db = await setup();
   await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
-  await db.exec(migration('20261031130000_lesson_modules.sql'));
+  await db.exec(migration('20261031172943_lesson_modules.sql'));
   await assert.rejects(db.exec(`update public.modules set lesson_key = 'nope' where id = 10;`), /check/);
 });

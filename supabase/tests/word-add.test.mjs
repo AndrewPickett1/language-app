@@ -49,7 +49,7 @@ async function setup() {
   await db.exec(migration('20261025213811_daily_streaks.sql'));
   // Supabase grants table access to the API roles by default; the migration narrows profiles.
   await db.exec(`grant all on public.profiles, public.user_words, public.words, public.user_streaks to anon, authenticated;`);
-  await db.exec(migration('20261027120000_daily_word_add.sql'));
+  await db.exec(migration('20261028053528_daily_word_add.sql'));
   return db;
 }
 
