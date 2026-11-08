@@ -14,15 +14,17 @@ import { sendWordResults, type WordResult } from '@/utils/word-stats';
 type Row = ModuleRow & { language: { name: string } | null };
 
 /**
- * Every module for the given language, in map order, matched by name like the language picker does.
- * `done` holds the learner's own `user_modules` row (RLS hides everyone else's), empty until they finish it.
+ * Every module for the given language with its level, matched by name like the language picker does.
+ * `done` holds the learner's own `user_modules` row (RLS hides everyone else's), empty until they finish it,
+ * and `level.done` their `user_levels` row the same way.
  */
 export async function fetchModules(languageName: string): Promise<ModuleRow[]> {
   const { data, error } = await supabase
     .from('modules')
-    .select('id, unit, position, title, description, module_type, words:module_words(count), done:user_modules(best_score), language:language_id!inner(name)')
+    .select(
+      'id, position, title, description, module_type, words:module_words(count), done:user_modules(best_score), level:level_id(number, title, done:user_levels(completed_at)), language:language_id!inner(name)'
+    )
     .ilike('language.name', languageName)
-    .order('unit')
     .order('position')
     .overrideTypes<Row[], { merge: false }>();
   if (error) throw new Error(error.message);

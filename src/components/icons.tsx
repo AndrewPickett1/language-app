@@ -47,6 +47,18 @@ export function CheckIcon({ color, size = 18 }: IconProps) {
   );
 }
 
+/** Three bulleted lines: a list of levels. */
+export function ListIcon({ color, size = 22 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx={5.5} cy={6.5} r={1.8} fill={color} />
+      <Circle cx={5.5} cy={12} r={1.8} fill={color} />
+      <Circle cx={5.5} cy={17.5} r={1.8} fill={color} />
+      <Path d="M10 6.5h9M10 12h9M10 17.5h9" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function PlusIcon({ color, size = 20 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">

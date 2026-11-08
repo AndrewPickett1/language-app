@@ -73,6 +73,7 @@ function RootStack() {
         <Stack.Screen name="add-word" />
         <Stack.Screen name="leaderboard" />
         <Stack.Screen name="level-map" />
+        <Stack.Screen name="levels" />
         <Stack.Screen name="rewards" />
         <Stack.Screen name="filters" options={{ animation: 'slide_from_bottom', contentStyle: { backgroundColor: p.grapeSoft } }} />
         <Stack.Screen name="card/[id]" />

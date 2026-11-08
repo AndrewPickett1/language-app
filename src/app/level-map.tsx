@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
@@ -6,11 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { LottoMascot } from '@/components/art/lotto-mascot';
-import { CheckIcon, ChevronIcon, LockIcon, StarIcon } from '@/components/icons';
-import { goBack } from '@/components/screen';
-import { Panel, RoundButton, Sticker } from '@/components/sticker';
+import { CheckIcon, ListIcon, LockIcon, StarIcon } from '@/components/icons';
+import { LevelHeader } from '@/components/level-header';
+import { RoundButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
-import { unitProgress, type MapModule, type MapUnit, type ModuleStatus } from '@/data/level-map';
+import { currentUnit, type MapModule, type MapUnit, type ModuleStatus } from '@/data/level-map';
 import { useLanguage } from '@/state/language';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
@@ -36,74 +36,77 @@ const StatusText: Record<ModuleStatus, string> = {
   reward: 'bonus reward, locked',
 };
 
-/** The Learn screen: the current language's units of modules on a winding path, first at the bottom. */
+/**
+ * The Learn screen: one level's modules on a winding path, first at the bottom. It opens on the level holding
+ * the learner's next module, or the one `level` names (from the Levels list).
+ */
 export default function LevelMapScreen() {
   const p = usePalette();
+  const { level } = useLocalSearchParams<{ level?: string }>();
+  const { language } = useLanguage();
+  const { units, error } = useLevelMap();
+  const unit = units && (units.find((u) => String(u.number) === level) ?? currentUnit(units));
+
+  return (
+    <View style={{ flex: 1, backgroundColor: p.surface }}>
+      <LevelHeader
+        title={unit ? `Level ${unit.number}` : 'Learn'}
+        backLabel="Back to home"
+        fallback="/"
+        trailing={
+          <RoundButton accessibilityLabel="All levels" size={44} fill={p.paper} disabled={!unit} onPress={() => router.push('/levels')}>
+            <ListIcon color={p.ink} />
+          </RoundButton>
+        }
+      />
+      {!units ? (
+        <ActivityIndicator color={p.ink} style={{ padding: Space[6] }} />
+      ) : !unit ? (
+        <Empty
+          title={error ? "Couldn't load the map" : 'Coming soon'}
+          body={error ?? `There are no ${language.name} lessons yet. Check back soon!`}
+        />
+      ) : (
+        // Keyed so picking another level starts its map fresh, scrolled to its own next module.
+        <LevelRoad key={unit.number} unit={unit} />
+      )}
+    </View>
+  );
+}
+
+/** A level's road, scrolled so the next module sits mid-screen, or to the start when there isn't one. */
+function LevelRoad({ unit }: { unit: MapUnit }) {
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollViewInstance>(null);
   const scrolled = useRef(false);
   const [viewport, setViewport] = useState(0);
-  // Where each unit sits in the scroll content, and the size its map stretched to.
-  const [tops, setTops] = useState<Record<number, number>>({});
-  const [sizes, setSizes] = useState<Record<number, Size>>({});
-  const { language } = useLanguage();
-  const { units, error } = useLevelMap();
+  const [size, setSize] = useState<Size>();
   // The next module wears the dashed ring.
-  const selected = units?.flatMap((u) => u.modules).find((m) => m.status === 'current')?.id ?? null;
-  const currentUnit = units?.find((u) => u.modules.some((m) => m.status === 'current'));
-  const currentY =
-    currentUnit && tops[currentUnit.number] !== undefined && sizes[currentUnit.number]
-      ? tops[currentUnit.number] +
-        fitUnit(currentUnit, sizes[currentUnit.number]).modules.find((m) => m.status === 'current')!.y
-      : null;
+  const selected = unit.modules.find((m) => m.status === 'current')?.id ?? null;
+  const currentY = size ? (fitUnit(unit, size).modules.find((m) => m.status === 'current')?.y ?? null) : undefined;
 
-  // Open with the next module in the middle of the screen.
   useEffect(() => {
-    if (scrolled.current || !viewport || currentY === null) return;
+    if (scrolled.current || !viewport || currentY === undefined) return;
     scrolled.current = true;
-    scroll.current?.scrollTo({ y: Math.max(0, currentY - viewport / 2), animated: false });
+    if (currentY === null) scroll.current?.scrollToEnd({ animated: false });
+    else scroll.current?.scrollTo({ y: Math.max(0, currentY - viewport / 2), animated: false });
   }, [viewport, currentY]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: p.surface }}>
-      <ScrollView
-        ref={scroll}
-        style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top, paddingBottom: insets.bottom, gap: Space[3] }}
-        showsVerticalScrollIndicator={false}
-        onLayout={(e) => setViewport(e.nativeEvent.layout.height)}>
-        {!units ? (
-          <ActivityIndicator color={p.ink} style={{ padding: Space[6] }} />
-        ) : units.length === 0 ? (
-          <Empty
-            title={error ? "Couldn't load the map" : 'Coming soon'}
-            body={error ?? `There are no ${language.name} lessons yet. Check back soon!`}
-          />
-        ) : (
-          [...units].reverse().map((unit) => (
-            <View
-              key={unit.number}
-              style={{ flexGrow: 1 }}
-              onLayout={(e) => setTops((t) => ({ ...t, [unit.number]: e.nativeEvent.layout.y }))}>
-              <UnitMap
-                unit={unit}
-                size={sizes[unit.number]}
-                onSize={(size) => setSizes((s) => ({ ...s, [unit.number]: size }))}
-                selected={selected}
-                onPick={(id) => router.push({ pathname: '/lesson/[id]', params: { id } })}
-              />
-              {unit.number > 1 && <UnitBanner unit={unit} />}
-            </View>
-          ))
-        )}
-      </ScrollView>
-      {/* The map scrolls under a lone back button. */}
-      <View style={{ position: 'absolute', top: insets.top + Space[2], left: Space[4] }}>
-        <RoundButton accessibilityLabel="Back to home" size={44} fill={p.paper} onPress={() => goBack('/')}>
-          <ChevronIcon color={p.ink} />
-        </RoundButton>
-      </View>
-    </View>
+    <ScrollView
+      ref={scroll}
+      style={{ flex: 1 }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom }}
+      showsVerticalScrollIndicator={false}
+      onLayout={(e) => setViewport(e.nativeEvent.layout.height)}>
+      <UnitMap
+        unit={unit}
+        size={size}
+        onSize={setSize}
+        selected={selected}
+        onPick={(id) => router.push({ pathname: '/lesson/[id]', params: { id } })}
+      />
+    </ScrollView>
   );
 }
 
@@ -335,22 +338,6 @@ function ModuleNode({ module: m, selected, onPress }: ModuleNodeProps) {
         </View>
       )}
     </>
-  );
-}
-
-/** Introduces a unit as you scroll up into it. */
-function UnitBanner({ unit }: { unit: MapUnit }) {
-  const p = usePalette();
-  const { done, total } = unitProgress(unit);
-  return (
-    <Panel fill={p.grape} style={{ marginHorizontal: Space[4], paddingVertical: 14, paddingLeft: 18, paddingRight: 14, gap: 2 }}>
-      <Txt variant="caption" color={p.onBright}>
-        Unit {unit.number} · {done} of {total} done
-      </Txt>
-      <Txt accessibilityRole="header" color={p.onBright} style={{ fontFamily: Font.display600, fontSize: 26, lineHeight: 30 }}>
-        {unit.title}
-      </Txt>
-    </Panel>
   );
 }
 
