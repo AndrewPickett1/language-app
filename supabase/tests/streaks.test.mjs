@@ -60,7 +60,7 @@ async function setup() {
   await db.exec(migration('20261025212740_drop_profiles_streak_columns.sql'));
   await db.exec(migration('20261025213811_daily_streaks.sql'));
   await db.exec(migration('20261025215105_lotto_pull_keeps_streak.sql'));
-  await db.exec(migration('20261028130000_claim_exercise_pull_lesson.sql'));
+  await db.exec(migration('20261029033922_claim_exercise_pull_lesson.sql'));
   await db.exec(`revoke all on function public.spend_lotto_pull() from public, anon; grant execute on function public.spend_lotto_pull() to authenticated;`);
   // Supabase grants table access to the API roles by default; RLS is what limits it.
   await db.exec(`grant all on public.user_streaks to anon, authenticated;`);
