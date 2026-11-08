@@ -163,3 +163,79 @@ test('only Lesson modules can have a lesson key', async () => {
   await db.exec(migration('20261031130000_lesson_modules.sql'));
   await assert.rejects(db.exec(`update public.modules set lesson_key = 'nope' where id = 10;`), /check/);
 });
+
+/**
+ * `setup()` plus levels: Level 1 holds the two modules, and Level 2 holds a third (word 4) after them.
+ * The API roles get every table privilege, as on Supabase, so only RLS keeps clients out of user_levels.
+ */
+async function setupLevels() {
+  const db = await setup();
+  await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
+  await db.exec(migration('20261108120000_create_levels.sql'));
+  await db.exec(migration('20261108130000_user_levels.sql'));
+  await db.exec(`
+    grant all on public.user_levels to anon, authenticated;
+    insert into public.levels (id, language_id, number, title) values (20, 1, 2, 'Level 2');
+    insert into public.modules (id, language_id, unit, level_id, position, title) values (12, 1, 2, 20, 2, 'Next');
+    insert into public.module_words (module_id, word_id, position) values (12, 4, 0);
+  `);
+  return db;
+}
+
+async function levelIds(db, user) {
+  const { rows } = await db.query(`select l.number from public.user_levels ul join public.levels l on l.id = ul.level_id where ul.user_id = $1 order by l.number`, [user]);
+  return rows.map((r) => r.number);
+}
+
+test('finishing the last module of a level completes the level, once', async () => {
+  const db = await setupLevels();
+  assert.equal((await complete(db, A, 10)).level_completed, false);
+  assert.deepEqual(await levelIds(db, A), []);
+
+  assert.equal((await complete(db, A, 11)).level_completed, true);
+  assert.deepEqual(await levelIds(db, A), [1]);
+
+  // Replaying any of its modules doesn't complete it again.
+  assert.equal((await complete(db, A, 11)).level_completed, false);
+  assert.equal((await complete(db, A, 10)).level_completed, false);
+  assert.deepEqual(await levelIds(db, A), [1]);
+
+  // Level 2 has one module, so finishing it completes that level.
+  assert.equal((await complete(db, A, 12)).level_completed, true);
+  assert.deepEqual(await levelIds(db, A), [1, 2]);
+  assert.deepEqual(await levelIds(db, B), []);
+});
+
+test('a module added to a finished level doesn\'t reopen it', async () => {
+  const db = await setupLevels();
+  await complete(db, A, 10);
+  await complete(db, A, 11);
+  await db.exec(`
+    update public.modules set position = 3 where id = 12;
+    insert into public.modules (id, language_id, level_id, position, title) values (13, 1, (select id from public.levels where number = 1), 2, 'Extra');
+  `);
+  assert.deepEqual(await levelIds(db, A), [1]);
+  assert.equal((await complete(db, A, 13)).level_completed, false);
+  assert.deepEqual(await levelIds(db, A), [1]);
+});
+
+test('learners who had already finished a level get it when user_levels is created', async () => {
+  const db = await setup();
+  await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
+  await db.exec(migration('20261108120000_create_levels.sql'));
+  await complete(db, A, 10);
+  await complete(db, A, 11);
+  await complete(db, B, 10);
+  await db.exec(migration('20261108130000_user_levels.sql'));
+  assert.deepEqual(await levelIds(db, A), [1]);
+  assert.deepEqual(await levelIds(db, B), []);
+});
+
+test('learners can read only their own levels and can\'t write any', async () => {
+  const db = await setupLevels();
+  await complete(db, A, 10);
+  await complete(db, A, 11);
+  assert.equal((await as(db, A, `select * from public.user_levels`)).rows.length, 1);
+  assert.equal((await as(db, B, `select * from public.user_levels`)).rows.length, 0);
+  await assert.rejects(as(db, B, `insert into public.user_levels (user_id, level_id) values ($1, 20)`, [B]), /row-level security/);
+});

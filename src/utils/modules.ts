@@ -122,6 +122,8 @@ export type ModuleCompletion = {
   next_pull_at: string | null;
   /** How many of the module's words were new to the learner's words. */
   words_added: number;
+  /** True only the first time this finishes the module's level (every module in it done). */
+  level_completed: boolean;
 };
 
 /**
