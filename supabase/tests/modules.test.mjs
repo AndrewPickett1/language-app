@@ -239,3 +239,45 @@ test('learners can read only their own levels and can\'t write any', async () =>
   assert.equal((await as(db, B, `select * from public.user_levels`)).rows.length, 0);
   await assert.rejects(as(db, B, `insert into public.user_levels (user_id, level_id) values ($1, 20)`, [B]), /row-level security/);
 });
+
+test('French Level 2 adds Pronouns 1 and Verbs 1 after Level 1, unlocked in order', async () => {
+  const db = await setup();
+  await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
+  await db.exec(migration('20261031130000_lesson_modules.sql'));
+  await db.exec(migration('20261108120000_create_levels.sql'));
+  await db.exec(migration('20261108130000_user_levels.sql'));
+  await db.exec(migration('20261108140000_french_level_2.sql'));
+  // Running it again changes nothing.
+  await db.exec(migration('20261108140000_french_level_2.sql'));
+
+  const { rows } = await db.query(`
+    select m.id, m.lesson_key, m.unit, lv.number as level from public.modules m join public.levels lv on lv.id = m.level_id
+     order by m.position`);
+  assert.deepEqual(
+    rows.map((r) => [r.lesson_key, r.level, r.unit]),
+    [[null, 1, 1], ['genders', 1, 1], [null, 1, 1], ['pronouns-1', 2, 2], ['verbs-1', 2, 2]]
+  );
+
+  const [pronouns, verbs] = rows.slice(3).map((r) => r.id);
+  await assert.rejects(as(db, A, `select * from public.complete_module($1, null)`, [pronouns]), /MODULE_LOCKED/);
+  for (const id of rows.slice(0, 3).map((r) => r.id)) await as(db, A, `select * from public.complete_module($1, null)`, [id]);
+  await assert.rejects(as(db, A, `select * from public.complete_module($1, null)`, [verbs]), /MODULE_LOCKED/);
+  await as(db, A, `select * from public.complete_module($1, null)`, [pronouns]);
+  const done = await as(db, A, `select * from public.complete_module($1, null)`, [verbs]);
+  assert.equal(done.rows[0].level_completed, true);
+});
+
+test('removing C\'est… finishes Level 1 for learners who had done the rest of it', async () => {
+  const db = await setup();
+  await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
+  await db.exec(`insert into public.modules (id, language_id, position, title) values (15, 1, 5, 'C''est…');`);
+  await db.exec(migration('20261108120000_create_levels.sql'));
+  await db.exec(migration('20261108130000_user_levels.sql'));
+  await complete(db, A, 10);
+  await complete(db, A, 11);
+  assert.equal((await db.query(`select * from public.user_levels`)).rows.length, 0);
+
+  await db.exec(migration('20261108150000_remove_cest_module.sql'));
+  assert.deepEqual((await db.query(`select id from public.modules order by position`)).rows.map((r) => r.id), [10, 11]);
+  assert.deepEqual((await db.query(`select user_id from public.user_levels`)).rows.map((r) => r.user_id), [A]);
+});
