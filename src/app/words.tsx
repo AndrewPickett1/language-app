@@ -1,10 +1,10 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, View } from 'react-native';
+import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Capsule } from '@/components/art/capsule';
-import { ArrowIcon, CheckIcon, FilterIcon, PlusIcon } from '@/components/icons';
+import { ArrowIcon, CheckIcon, CloseIcon, FilterIcon, PlusIcon, SearchIcon } from '@/components/icons';
 import { LanguageButton } from '@/components/language-button';
 import { Screen, ScreenHeader } from '@/components/screen';
 import { RoundButton } from '@/components/sticker';
@@ -31,6 +31,8 @@ export default function WordsScreen() {
   const { words, otherLanguageCount, collected, loading, error, refresh, canAddToday } = useMyWords();
   const { filters, setFilters } = useWordFilters();
   const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState('');
+  const [focused, setFocused] = useState(false);
 
   // Words can be won elsewhere, so re-read them whenever the list comes into view.
   useFocusEffect(
@@ -39,9 +41,12 @@ export default function WordsScreen() {
     }, [refresh])
   );
 
-  const rows = applyWordFilters(words, filters, collected);
+  const filtered = applyWordFilters(words, filters, collected);
+  // Searches the shown word and meaning anywhere, ignoring case and accents.
+  const needle = fold(query.trim());
+  const rows = needle ? filtered.filter((w) => fold(bareWord(w.word)).includes(needle) || fold(shownMeaning(w.meaning)).includes(needle)) : filtered;
   const typeFill: Record<WordType, string> = { Noun: p.sunshineSoft, Verb: p.skySoft, Adjective: p.pinkSoft };
-  const count = loading && words.length === 0 ? 'Loading…' : `${rows.length} ${rows.length === 1 ? 'word' : 'words'}${isFiltered(filters) ? '' : ' collected'}`;
+  const count = loading && words.length === 0 ? 'Loading…' : `${filtered.length} ${filtered.length === 1 ? 'word' : 'words'}${isFiltered(filters) ? '' : ' collected'}`;
 
   return (
     <Screen edges={['top', 'left', 'right']} style={{ paddingBottom: 0, gap: 14 }}>
@@ -93,6 +98,56 @@ export default function WordsScreen() {
         }
       />
 
+      <View
+        accessibilityRole="search"
+        style={{
+          height: 48,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: Space[2],
+          paddingLeft: 14,
+          paddingRight: Space[1],
+          backgroundColor: p.surfaceRaised,
+          borderColor: p.line,
+          borderWidth: Stroke[2],
+          borderRadius: Radius.pill,
+          boxShadow: focused ? `0px 0px 0px 4px ${p.grapeSoft}` : undefined,
+        }}>
+        <SearchIcon color={p.ink} size={20} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          accessibilityLabel="Search your words"
+          placeholder={`Search ${filtered.length} ${filtered.length === 1 ? 'word' : 'words'}`}
+          placeholderTextColor={p.inkMuted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="off"
+          spellCheck={false}
+          returnKeyType="search"
+          style={{ flex: 1, minWidth: 0, height: '100%', padding: 0, color: p.ink, fontFamily: Font.display600, fontSize: 17 }}
+        />
+        {query.length > 0 && (
+          <>
+            <View style={{ paddingHorizontal: Space[2], paddingVertical: 1, backgroundColor: p.sunshineSoft, borderColor: p.line, borderWidth: Stroke[1], borderRadius: Radius.pill }}>
+              <Txt accessibilityLiveRegion="polite" style={{ fontFamily: Font.body900, fontSize: 12, lineHeight: 16 }}>
+                {rows.length} of {filtered.length}
+              </Txt>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              hitSlop={4}
+              onPress={() => setQuery('')}
+              style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: p.surfaceSunken, borderColor: p.line, borderWidth: Stroke[1], borderRadius: Radius.pill }}>
+              <CloseIcon color={p.ink} size={12} />
+            </Pressable>
+          </>
+        )}
+      </View>
+
       <View style={{ flex: 1, marginHorizontal: -Space[4], backgroundColor: p.surfaceRaised }}>
         <View style={{ flexDirection: 'row', gap: Space[2], paddingHorizontal: 18, paddingTop: 14, paddingBottom: Space[3], backgroundColor: p.ink }}>
           {Headers.map(([column, label, name], i) => {
@@ -117,6 +172,8 @@ export default function WordsScreen() {
         <FlatList
           data={rows}
           keyExtractor={(w) => w.id}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           contentContainerStyle={{ paddingBottom: insets.bottom + Space[8] }}
           refreshing={refreshing}
           onRefresh={async () => {
@@ -133,7 +190,9 @@ export default function WordsScreen() {
                     ? otherLanguageCount > 0
                       ? `No words in this language yet. You have ${otherLanguageCount} in other languages: switch language to see them.`
                       : 'No words yet. Pull a capsule to win your first one!'
-                    : 'No words match these filters.'}
+                    : needle && filtered.length > 0
+                      ? `No “${query.trim()}” in your words yet.`
+                      : 'No words match these filters.'}
               </Txt>
             )
           }
@@ -154,10 +213,12 @@ export default function WordsScreen() {
               })}>
               <View style={{ flex: Columns[0], flexDirection: 'row', alignItems: 'center', gap: 7 }}>
                 <Capsule color={RarityInfo[w.rarity].color} line={p.line} size={16} shine={false} stroke={8} />
-                <Txt style={{ flexShrink: 1, fontFamily: Font.display600, fontSize: 16, lineHeight: 20 }}>{bareWord(w.word)}</Txt>
+                <Txt style={{ flexShrink: 1, fontFamily: Font.display600, fontSize: 16, lineHeight: 20 }}>
+                  <Highlight text={bareWord(w.word)} needle={needle} fill={p.sunshine} ink={p.onBright} />
+                </Txt>
               </View>
               <Txt variant="label" color={p.onBrightMuted} style={{ flex: Columns[1] }}>
-                {w.meaning.replace(/^the /, '')}
+                <Highlight text={shownMeaning(w.meaning)} needle={needle} fill={p.sunshineSoft} ink={p.ink} />
               </Txt>
               <View style={{ flex: Columns[2], alignItems: 'flex-start' }}>
                 <View style={{ paddingHorizontal: 7, paddingVertical: 1, backgroundColor: typeFill[w.type], borderColor: p.line, borderWidth: Stroke[1], borderRadius: Radius.pill }}>
@@ -182,5 +243,30 @@ export default function WordsScreen() {
         />
       </View>
     </Screen>
+  );
+}
+
+function shownMeaning(meaning: string) {
+  return meaning.replace(/^the /, '');
+}
+
+/** Lowercases and strips accents one character at a time, so indexes still line up with the original text. */
+function fold(s: string) {
+  return s
+    .split('')
+    .map((c) => c.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().charAt(0) || c)
+    .join('');
+}
+
+/** Marks the first match of `needle` in `text`. Nest inside a `Txt` so the rest keeps its style. */
+function Highlight({ text, needle, fill, ink }: { text: string; needle: string; fill: string; ink: string }) {
+  const i = needle ? fold(text).indexOf(needle) : -1;
+  if (i < 0) return text;
+  return (
+    <>
+      {text.slice(0, i)}
+      <Text style={{ backgroundColor: fill, color: ink }}>{text.slice(i, i + needle.length)}</Text>
+      {text.slice(i + needle.length)}
+    </>
   );
 }
