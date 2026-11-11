@@ -267,6 +267,35 @@ test('French Level 2 adds Pronouns 1 and Verbs 1 after Level 1, unlocked in orde
   assert.equal(done.rows[0].level_completed, true);
 });
 
+test('French To be comes after Verbs 1 in Level 2, teaching être', async () => {
+  const db = await setup();
+  await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
+  await db.exec(`alter table public.words add column language_id bigint;`);
+  await db.exec(`insert into public.words (id, word, language_id) values (5, 'Être', 1);`);
+  await db.exec(migration('20261031130000_lesson_modules.sql'));
+  await db.exec(migration('20261108120000_create_levels.sql'));
+  await db.exec(migration('20261108130000_user_levels.sql'));
+  await db.exec(migration('20261108140000_french_level_2.sql'));
+  await db.exec(migration('20261108160000_french_to_be_module.sql'));
+  // Running it again changes nothing.
+  await db.exec(migration('20261108160000_french_to_be_module.sql'));
+
+  const { rows } = await db.query(`
+    select m.id, m.title, m.module_type, lv.number as level from public.modules m join public.levels lv on lv.id = m.level_id
+     order by m.position`);
+  assert.deepEqual(rows.slice(-3).map((r) => [r.title, r.level]), [['Pronouns 1', 2], ['Verbs 1', 2], ['To be', 2]]);
+  const toBe = rows.at(-1);
+  assert.equal(toBe.module_type, 'Exercise');
+  assert.deepEqual((await db.query(`select word_id from public.module_words where module_id = $1`, [toBe.id])).rows.map((r) => Number(r.word_id)), [5]);
+
+  for (const r of rows.slice(0, -2)) await as(db, A, `select * from public.complete_module($1, null)`, [r.id]);
+  await assert.rejects(as(db, A, `select * from public.complete_module($1, 90::smallint)`, [toBe.id]), /MODULE_LOCKED/);
+  await as(db, A, `select * from public.complete_module($1, null)`, [rows.at(-2).id]);
+  const done = await as(db, A, `select * from public.complete_module($1, 90::smallint)`, [toBe.id]);
+  assert.equal(done.rows[0].level_completed, true);
+  assert.equal(done.rows[0].words_added, 1);
+});
+
 test('removing C\'est… finishes Level 1 for learners who had done the rest of it', async () => {
   const db = await setup();
   await db.exec(`alter table public.modules add column unit smallint not null default 1;`);

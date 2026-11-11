@@ -1,7 +1,11 @@
 import type { Word } from '@/data/words';
 
 /** A word with its raw `word_type` from the database (Noun, Phrase, Article…), which `Word.type` flattens. */
-export type LessonWord = Word & { kind: string };
+export type LessonWord = Word & {
+  kind: string;
+  /** For a conjugated form a verb lesson drills ("nous sommes"), the verb's id, which its answers count toward. */
+  formOf?: string;
+};
 
 type StepBase = { key: string; /** A second go at a question answered wrong earlier in the lesson. */ retry?: boolean };
 
@@ -9,19 +13,21 @@ type StepBase = { key: string; /** A second go at a question answered wrong earl
 export type Step = StepBase &
   (
     | { kind: 'meet'; word: LessonWord }
+    | { kind: 'verb'; verb: LessonWord }
+    | { kind: 'form'; word: LessonWord; pronoun: string; form: string; options: string[] }
     | { kind: 'meaning' | 'pick' | 'listen'; word: LessonWord; options: LessonWord[] }
     | { kind: 'gender'; noun: LessonWord; indefinite: boolean }
     | { kind: 'match'; words: LessonWord[] }
   );
 
 /** Steps that can be answered wrong and come back at the end. */
-export const RetryKinds: Step['kind'][] = ['meaning', 'pick', 'listen', 'gender'];
+export const RetryKinds: Step['kind'][] = ['meaning', 'pick', 'listen', 'gender', 'form'];
 
 /** Words are met three at a time, each group followed by a meaning quiz on it. */
 const GroupSize = 3;
 const PickCount = 4;
 const ListenCount = 3;
-const MatchPairs = 5;
+export const MatchPairs = 5;
 
 export function shuffle<T>(items: T[]): T[] {
   const out = [...items];
@@ -79,7 +85,7 @@ export function display(word: LessonWord, indefinite = false) {
  * Three wrong answers for `word`, shown as `text`. The lesson's own words come first (they're what
  * the learner is learning), then the rest of the deck, preferring the same kind of word.
  */
-function distractors(word: LessonWord, lesson: LessonWord[], deck: LessonWord[], text: (w: LessonWord) => string) {
+export function distractors(word: LessonWord, lesson: LessonWord[], deck: LessonWord[], text: (w: LessonWord) => string) {
   const others = (list: LessonWord[]) => list.filter((w) => w.id !== word.id);
   const sameKind = (list: LessonWord[]) => shuffle(others(list).filter((w) => w.kind === word.kind));
   const pool = [...sameKind(lesson), ...sameKind(deck), ...shuffle(others(lesson)), ...shuffle(others(deck))];

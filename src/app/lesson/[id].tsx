@@ -7,25 +7,44 @@ import { LottoMascot } from '@/components/art/lotto-mascot';
 import { ChoiceQuiz } from '@/components/lesson/choice-quiz';
 import { ConceptLesson } from '@/components/lesson/concept-lesson';
 import { ConceptLessons } from '@/components/lesson/concepts';
+import { FormPick } from '@/components/lesson/form-pick';
 import { GenderPick } from '@/components/lesson/gender-pick';
 import { MatchPairs } from '@/components/lesson/match-pairs';
 import { MeetWord } from '@/components/lesson/meet-word';
 import { ModuleDone } from '@/components/lesson/module-done';
 import { FeedbackSheet, type Feedback } from '@/components/lesson/shared';
+import { VerbIntro } from '@/components/lesson/verb-intro';
 import { goBack, Screen, ScreenHeader } from '@/components/screen';
 import { StreakPopup } from '@/components/streak-popup';
 import { PillButton } from '@/components/sticker';
 import { Txt } from '@/components/text';
+import type { LanguageCode } from '@/data/languages';
 import { buildLesson, RetryKinds, type LessonWord, type Step } from '@/data/lesson';
+import { Pronouns } from '@/data/pronouns';
+import { buildVerbLesson, isVerbModule, verbDrill, type VerbDrill } from '@/data/verb-lesson';
 import { useLanguage } from '@/state/language';
 import { useStreak } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
+import { fetchConjugation } from '@/utils/conjugations';
 import { fetchLesson, fetchLessonDeck, useFinishModule, type Lesson } from '@/utils/modules';
 import { sendWordResults, type WordResult } from '@/utils/word-stats';
 
-type Loaded = { id: string; lesson: Lesson | null; deck: LessonWord[]; error: string | null };
+type Loaded = { id: string; lesson: Lesson | null; deck: LessonWord[]; drills: VerbDrill[]; error: string | null };
+
+/**
+ * A module whose words are all verbs drills their conjugations, so it needs each verb's stored forms. Verbs
+ * without enough of them are left out, and with none left the module runs as an ordinary word lesson.
+ */
+async function fetchDrills(lesson: Lesson, language: LanguageCode): Promise<VerbDrill[]> {
+  if (lesson.type !== 'Exercise' || !isVerbModule(lesson.words)) return [];
+  const conjugations = await Promise.all(lesson.words.map((w) => fetchConjugation(w).catch(() => undefined)));
+  return lesson.words.flatMap((verb, i) => {
+    const forms = verbDrill(verb, conjugations[i], Pronouns[language]);
+    return forms.length > 0 ? [{ verb, forms }] : [];
+  });
+}
 
 /**
  * A Learn module, opened from the level map. An Exercise module teaches its words through the Level 1
@@ -39,16 +58,17 @@ export default function LessonScreen() {
   useEffect(() => {
     let live = true;
     // The deck only supplies wrong answers and gender practice, so a lesson still runs without it.
-    Promise.all([fetchLesson(id), fetchLessonDeck(language.name).catch((): LessonWord[] => [])])
-      .then(([lesson, deck]): Loaded => ({ id, lesson, deck, error: null }))
-      .catch((e: Error): Loaded => ({ id, lesson: null, deck: [], error: e.message }))
+    const lessonWithDrills = fetchLesson(id).then(async (lesson) => ({ lesson, drills: await fetchDrills(lesson, language.code) }));
+    Promise.all([lessonWithDrills, fetchLessonDeck(language.name).catch((): LessonWord[] => [])])
+      .then(([{ lesson, drills }, deck]): Loaded => ({ id, lesson, deck, drills, error: null }))
+      .catch((e: Error): Loaded => ({ id, lesson: null, deck: [], drills: [], error: e.message }))
       .then((next) => {
         if (live) setLoaded(next);
       });
     return () => {
       live = false;
     };
-  }, [id, language.name]);
+  }, [id, language.name, language.code]);
 
   const current = loaded?.id === id ? loaded : undefined;
   if (!current) return <LessonMessage title="Opening the capsule…" detail="Getting your lesson ready." loading />;
@@ -60,16 +80,16 @@ export default function LessonScreen() {
   }
   if (current.lesson.words.length === 0) return <LessonMessage title="Nothing here yet" detail="This module doesn't have any words yet." />;
   // Built once, so nothing reshuffles mid-lesson.
-  return <LessonSession lesson={current.lesson} deck={current.deck} />;
+  return <LessonSession lesson={current.lesson} deck={current.deck} drills={current.drills} />;
 }
 
 type Stats = { combo: number; best: number; right: number; total: number };
 
-function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] }) {
+function LessonSession({ lesson, deck, drills }: { lesson: Lesson; deck: LessonWord[]; drills: VerbDrill[] }) {
   const p = usePalette();
   const streak = useStreak();
   const { finish, earnedPull } = useFinishModule(lesson.id);
-  const [steps, setSteps] = useState<Step[]>(() => buildLesson(lesson.words, deck));
+  const [steps, setSteps] = useState<Step[]>(() => (drills.length > 0 ? buildVerbLesson(drills) : buildLesson(lesson.words, deck)));
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [stats, setStats] = useState<Stats>({ combo: 0, best: 0, right: 0, total: 0 });
@@ -86,8 +106,9 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
     };
   }, []);
 
-  const record = (right: boolean, wordId: string) => {
-    seen.current.push({ wordId, correct: right });
+  // A conjugated form's answers count toward its verb.
+  const record = (right: boolean, word: LessonWord) => {
+    seen.current.push({ wordId: word.formOf ?? word.id, correct: right });
     setStats((s) => {
       const combo = right ? s.combo + 1 : 0;
       return { combo, best: Math.max(s.best, combo), right: s.right + (right ? 1 : 0), total: s.total + 1 };
@@ -97,8 +118,8 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
   // A wrong answer comes back once at the end of the lesson.
   const answer = (right: boolean, next: Feedback) => {
     const step = steps[index];
-    if (step.kind === 'gender') record(right, step.noun.id);
-    else if (step.kind === 'meaning' || step.kind === 'pick' || step.kind === 'listen') record(right, step.word.id);
+    if (step.kind === 'gender') record(right, step.noun);
+    else if (step.kind === 'meaning' || step.kind === 'pick' || step.kind === 'listen' || step.kind === 'form') record(right, step.word);
     if (!right && !step.retry && RetryKinds.includes(step.kind)) {
       setSteps((s) => [...s, { ...step, key: `${step.key}-retry`, retry: true }]);
     }
@@ -150,7 +171,7 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
               <View style={{ height: '100%', width: `${(done / steps.length) * 100}%`, minWidth: 10, backgroundColor: p.pink, borderRadius: Radius.pill }} />
             </View>
           }
-          trailing={step.kind === 'meet' ? <NewBadge /> : <ComboChip combo={stats.combo} />}
+          trailing={step.kind === 'meet' || step.kind === 'verb' ? <NewBadge /> : <ComboChip combo={stats.combo} />}
         />
 
         {step.kind === 'meet' && (
@@ -163,13 +184,36 @@ function LessonSession({ lesson, deck }: { lesson: Lesson; deck: LessonWord[] })
             }}
           />
         )}
+        {step.kind === 'verb' && (
+          <VerbIntro
+            key={step.key}
+            verb={step.verb}
+            onDone={() => {
+              seen.current.push({ wordId: step.verb.id, correct: null });
+              advance();
+            }}
+          />
+        )}
         {(step.kind === 'meaning' || step.kind === 'pick' || step.kind === 'listen') && (
           <ChoiceQuiz key={step.key} kind={step.kind} word={step.word} options={step.options} retry={step.retry} onAnswer={answer} />
         )}
         {step.kind === 'gender' && (
           <GenderPick key={step.key} noun={step.noun} indefinite={step.indefinite} ruleFirst={teachesArticles && index === firstGender} onAnswer={answer} />
         )}
-        {step.kind === 'match' && <MatchPairs key={step.key} words={step.words} onTry={record} onDone={setFeedback} />}
+        {step.kind === 'form' && (
+          <FormPick key={step.key} word={step.word} pronoun={step.pronoun} form={step.form} options={step.options} retry={step.retry} onAnswer={answer} />
+        )}
+        {step.kind === 'match' && (
+          <MatchPairs
+            key={step.key}
+            words={step.words}
+            onTry={(right, id) => {
+              const word = step.words.find((w) => w.id === id);
+              if (word) record(right, word);
+            }}
+            onDone={setFeedback}
+          />
+        )}
       </Screen>
 
       {feedback && <FeedbackSheet feedback={feedback} onNext={advance} />}
