@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Modal, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { Easing, FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { Capsule } from '@/components/art/capsule';
 import { GachaMachine, type MachinePhase } from '@/components/gacha-machine';
 import { CloseIcon, RechargeClockIcon } from '@/components/icons';
+import { CardShine, RareBackdrop, RareBanner, RareCardEntrance, RareStage, useRareReveal } from '@/components/rare-reveal';
 import { Screen, ScreenHeader } from '@/components/screen';
 import { RoundButton } from '@/components/sticker';
 import { StreakPopup } from '@/components/streak-popup';
@@ -138,6 +139,7 @@ const SwipeVelocity = 900;
 /**
  * The pulled word's card pops up over the machine. It's already been saved to the binder by `pull()`,
  * so there's nothing to confirm: the card is closed with its close button or swiped away in any direction.
+ * Super and Ultra Rare words play the rare reveal first, and the card can't be swiped until it's done.
  * A real Modal, not an overlay View: it's its own native window, so closing it can't leave
  * stray pixels of the card's shadow and rounded corners behind on the Lotto screen.
  */
@@ -149,8 +151,11 @@ function Reveal({ prize, onClose }: RevealProps) {
   const dx = useSharedValue(0);
   const dy = useSharedValue(0);
   const leaving = useSharedValue(false);
+  // Super and Ultra Rare play the rare reveal before the card shows.
+  const reveal = useRareReveal(word.rarity);
 
   const pan = Gesture.Pan()
+    .enabled(reveal.done)
     // A short dead zone so taps on the buttons inside the card still land.
     .minDistance(12)
     .onUpdate((e) => {
@@ -189,6 +194,20 @@ function Reveal({ prize, onClose }: RevealProps) {
     opacity: Math.max(0, 1 - Math.hypot(dx.get(), dy.get()) / (width * 1.2)),
   }));
 
+  const card = (
+    <WordCard
+      word={word}
+      artHeight={196}
+      style={{ flexShrink: 1 }}
+      artOverlay={reveal.rare && reveal.done && !reveal.reduce && <CardShine loop={reveal.ultra} />}
+      leading={
+        <RoundButton accessibilityLabel="Close" fill={p.paper} size={44} lift={3} onPress={onClose}>
+          <CloseIcon color={p.onBright} size={16} />
+        </RoundButton>
+      }
+    />
+  );
+
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       {/* A Modal is its own native root on Android, so gestures inside it need their own root view. */}
@@ -196,7 +215,8 @@ function Reveal({ prize, onClose }: RevealProps) {
       <GestureHandlerRootView style={{ flex: 1 }}>
         {/* Only the backdrop fades; the card stays fully opaque until it's off screen and the modal closes. */}
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, fadeStyle]}>
-          <Animated.View entering={FadeIn.duration(200)} style={{ flex: 1, backgroundColor: 'rgba(42, 27, 74, 0.72)' }} />
+          <Animated.View entering={FadeIn.duration(200)} style={{ flex: 1, backgroundColor: reveal.rare ? RareBackdrop : 'rgba(42, 27, 74, 0.72)' }} />
+          {reveal.rare && <RareStage rarity={word.rarity} step={reveal.step} reduce={reveal.reduce} />}
         </Animated.View>
         <View
           style={{
@@ -207,28 +227,32 @@ function Reveal({ prize, onClose }: RevealProps) {
             paddingHorizontal: Space[4],
             paddingBottom: insets.bottom + Space[4],
           }}>
+          {reveal.rare && (
+            <Animated.View pointerEvents="none" style={[{ marginHorizontal: -Space[4] }, fadeStyle]}>
+              <RareBanner rarity={word.rarity} step={reveal.step} />
+            </Animated.View>
+          )}
           <GestureDetector gesture={pan}>
             <Animated.View style={[{ flexShrink: 1, width: '100%', maxWidth: 420, alignSelf: 'center' }, cardStyle]}>
               <Animated.View
-                entering={ZoomIn.duration(400).easing(Easing.bezier(...Bounce).factory())}
+                entering={reveal.rare ? undefined : ZoomIn.duration(400).easing(Easing.bezier(...Bounce).factory())}
                 accessibilityViewIsModal
                 accessibilityLabel={isNew ? `New word: ${word.word}` : `${word.word}, already in your binder`}
                 accessibilityHint="Swipe the card away to close it"
                 style={{ flexShrink: 1 }}>
-                <WordCard
-                  word={word}
-                  artHeight={196}
-                  style={{ flexShrink: 1 }}
-                  leading={
-                    <RoundButton accessibilityLabel="Close" fill={p.paper} size={44} lift={3} onPress={onClose}>
-                      <CloseIcon color={p.onBright} size={16} />
-                    </RoundButton>
-                  }
-                />
+                {reveal.rare ? (
+                  <RareCardEntrance ultra={reveal.ultra} reduce={reveal.reduce} shown={reveal.done}>
+                    {card}
+                  </RareCardEntrance>
+                ) : (
+                  card
+                )}
               </Animated.View>
             </Animated.View>
           </GestureDetector>
         </View>
+        {/* Tap anywhere to skip straight to the card. */}
+        {!reveal.done && <Pressable accessibilityRole="button" accessibilityLabel="Skip animation" onPress={reveal.skip} style={StyleSheet.absoluteFill} />}
       </GestureHandlerRootView>
     </Modal>
   );

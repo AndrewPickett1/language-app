@@ -22,6 +22,8 @@ type WordCardProps = {
   leading: ReactNode;
   /** Fixed art height. Without it the art takes whatever height the card is given. */
   artHeight?: number;
+  /** Drawn over the art, inside its window (the rare reveal's shine). */
+  artOverlay?: ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -30,7 +32,7 @@ type WordCardProps = {
  * Verbs get the verb layout: a conjugation table under the word, with tighter panels to make room.
  * Its forms come from `verb_conjugations`, and any it doesn't have show as dashes.
  */
-export function WordCard({ word, leading, artHeight, style }: WordCardProps) {
+export function WordCard({ word, leading, artHeight, artOverlay, style }: WordCardProps) {
   const p = usePalette();
   const { language } = useLanguage();
   const [artBox, setArtBox] = useState({ width: 0, height: 0 });
@@ -85,6 +87,7 @@ export function WordCard({ word, leading, artHeight, style }: WordCardProps) {
         {artBox.width > 0 && (
           <WordArt id={word.id} color={info.color} line={p.line} width={Math.min(236, artBox.width * 0.7, artBox.height * 0.9)} />
         )}
+        {artOverlay}
       </View>
 
       <View style={{ gap: verb ? 2 : Space[1], padding: 14, paddingTop: verb ? 10 : Space[3], paddingBottom: verb ? Space[3] : 14, backgroundColor: p.paper, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
