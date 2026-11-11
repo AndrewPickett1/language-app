@@ -243,7 +243,7 @@ test('learners can read only their own levels and can\'t write any', async () =>
 test('French Level 2 adds Pronouns 1 and Verbs 1 after Level 1, unlocked in order', async () => {
   const db = await setup();
   await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
-  await db.exec(migration('20261031130000_lesson_modules.sql'));
+  await db.exec(migration('20261031172943_lesson_modules.sql'));
   await db.exec(migration('20261108120000_create_levels.sql'));
   await db.exec(migration('20261108130000_user_levels.sql'));
   await db.exec(migration('20261108140000_french_level_2.sql'));
@@ -272,7 +272,7 @@ test('French To be comes after Verbs 1 in Level 2, teaching être', async () => 
   await db.exec(`alter table public.modules add column unit smallint not null default 1;`);
   await db.exec(`alter table public.words add column language_id bigint;`);
   await db.exec(`insert into public.words (id, word, language_id) values (5, 'Être', 1);`);
-  await db.exec(migration('20261031130000_lesson_modules.sql'));
+  await db.exec(migration('20261031172943_lesson_modules.sql'));
   await db.exec(migration('20261108120000_create_levels.sql'));
   await db.exec(migration('20261108130000_user_levels.sql'));
   await db.exec(migration('20261108140000_french_level_2.sql'));
