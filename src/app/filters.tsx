@@ -29,9 +29,9 @@ const Genders: [GenderFilter, string][] = [
 ];
 
 const Sorts: [WordSort, string][] = [
+  ['new', 'Newest'],
   ['rarity', 'Rarity'],
   ['az', 'A–Z'],
-  ['new', 'Newest'],
 ];
 
 function toggle<T>(list: T[], item: T) {

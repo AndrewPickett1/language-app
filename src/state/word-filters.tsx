@@ -20,7 +20,7 @@ export type WordFilters = {
   column: ColumnSort | null;
 };
 
-export const NoFilters: WordFilters = { types: [], rarities: [], gender: 'any', sort: 'rarity', column: null };
+export const NoFilters: WordFilters = { types: [], rarities: [], gender: 'any', sort: 'new', column: null };
 
 /** True when the filters hide any words (sorting alone doesn't count). */
 export function isFiltered(f: WordFilters) {

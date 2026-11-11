@@ -217,8 +217,8 @@ export function StudyIcon({ line }: { line: string }) {
     <Svg width="100%" height="100%" viewBox="0 3 58 54" style={{ overflow: 'visible' }}>
       <Rect x={3} y={4} width={44} height={44} rx={9} fill="#fff6e5" stroke={line} strokeWidth={3} />
       <Path d="M12 16h26M12 26h26M12 36h15" stroke={line} strokeWidth={3} strokeLinecap="round" />
-      <Circle cx={45} cy={45} r={12.5} fill="#ffcb2e" stroke={line} strokeWidth={3} />
-      <G transform="translate(37 37.2) scale(0.66)">
+      <Circle cx={44} cy={43} r={12.5} fill="#ffcb2e" stroke={line} strokeWidth={3} />
+      <G transform="translate(36 35.2) scale(0.66)">
         <Polygon points={StarPoints} fill="#fff6e5" stroke={line} strokeWidth={4.2} strokeLinejoin="round" />
       </G>
     </Svg>
