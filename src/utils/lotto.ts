@@ -1,4 +1,6 @@
+import type { Rarity } from '@/data/rarity';
 import { supabase } from '@/utils/supabase';
+import { toRarity } from '@/utils/word-rows';
 
 /** What `get_lotto_state` returns. The server applies any recharges before answering. */
 export type LottoStateRow = {
@@ -7,16 +9,23 @@ export type LottoStateRow = {
   /** Null when the learner's pulls are full. */
   next_pull_at: string | null;
   server_now: string;
+  /** The rarity the next pull is guaranteed to be (the database's label, e.g. `Super Rare`). Null when there's no guarantee. */
+  guaranteed_rarity?: string | null;
 };
 
-/** What `spend_lotto_pull` returns. */
+/** What `spend_lotto_pull` returns. The server picks the word and has already saved it to `user_words`. */
 export type SpendLottoRow = {
   current_lotto_pulls: number;
   max_lotto_pulls: number;
   next_pull_at: string;
   server_now: string;
-  /** Always null until the server picks words. */
-  word_id: string | null;
+  word_id: number;
+  /** False when the learner already had the word. */
+  is_new: boolean;
+  /** The guarantee this pull used, if any. */
+  guarantee_used: string | null;
+  /** The guarantee left for the next pull, if any. */
+  guaranteed_rarity: string | null;
 };
 
 /** Exercises that earn a bonus pull when finished. */
@@ -43,12 +52,24 @@ export async function fetchLottoState(): Promise<LottoStateRow> {
   return data;
 }
 
-/** Spends one pull on the server. Being out of pulls is a result, not an error. */
-export async function spendLottoPull(): Promise<SpendResult> {
-  const { data, error } = await supabase.rpc('spend_lotto_pull').single().overrideTypes<SpendLottoRow, { merge: false }>();
+/** The app's rarity for a database rarity label. Null stays null. */
+export function toGuarantee(value: string | null | undefined): Rarity | null {
+  return value ? toRarity(value) : null;
+}
+
+/**
+ * Spends one pull on the server, which picks a word from `language` (using any guarantee) and saves it.
+ * Being out of pulls is a result, not an error.
+ */
+export async function spendLottoPull(language: string): Promise<SpendResult> {
+  const { data, error } = await supabase
+    .rpc('spend_lotto_pull', { p_language: language })
+    .single()
+    .overrideTypes<SpendLottoRow, { merge: false }>();
   if (error) {
     if (error.message.includes('NO_PULLS')) return { ok: false, reason: 'no_pulls', nextPullAt: parseTimestamp(error.details) };
     if (error.message.includes('NOT_AUTHENTICATED')) throw new Error('Sign in to pull a capsule.');
+    if (error.message.includes('NO_WORDS') || error.message.includes('UNKNOWN_LANGUAGE')) throw new Error(`There are no ${language} words to pull yet.`);
     throw new Error(error.message);
   }
   if (!data) throw new Error('spend_lotto_pull returned nothing.');

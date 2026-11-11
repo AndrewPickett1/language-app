@@ -10,7 +10,10 @@ type RarityMeta = {
   color: string;
   /** Soft tint key for panels behind a card of this rarity. */
   soft: keyof (typeof Themes)['light'];
-  /** Relative chance of coming out of a capsule. */
+  /**
+   * Relative chance of coming out of a capsule. The server picks the word, so this only documents
+   * `lotto_rarity_weight` in the database. Keep the two in step.
+   */
   weight: number;
 };
 

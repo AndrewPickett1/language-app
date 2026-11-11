@@ -1,6 +1,7 @@
 import { createContext, use, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 
+import type { Rarity } from '@/data/rarity';
 import { useAuth } from '@/state/auth';
 import { useStreak } from '@/state/streak';
 import {
@@ -8,6 +9,7 @@ import {
   fetchLottoState,
   parseTimestamp,
   spendLottoPull,
+  toGuarantee,
   type BonusPullRow,
   type BonusSource,
   type LottoStateRow,
@@ -24,6 +26,8 @@ type LottoState = {
   nextPullAt: Date | null;
   /** Server clock minus device clock, from the last RPC response. */
   clockOffsetMs: number;
+  /** The rarity the next pull is guaranteed to be, from the server. Null when there's no guarantee. */
+  guarantee: Rarity | null;
   /** True until the first `get_lotto_state` answer (or failure). */
   loading: boolean;
   spending: boolean;
@@ -32,17 +36,23 @@ type LottoState = {
 type Lotto = Omit<LottoState, 'owner'> & {
   /** Reloads pulls from the server, which applies any recharges. */
   refresh: () => Promise<void>;
-  /** Spends one pull on the server. On `no_pulls` the state is refreshed so the countdown shows. */
-  spend: () => Promise<SpendResult>;
+  /**
+   * Spends one pull on the server, which picks a word from `language` and saves it.
+   * On `no_pulls` the state is refreshed so the countdown shows.
+   */
+  spend: (language: string) => Promise<SpendResult>;
   /** Claims the bonus pull a finished exercise earns. The server decides whether it's granted. */
   claimBonus: (source: BonusSource) => Promise<BonusPullRow>;
 };
 
 const LottoContext = createContext<Lotto | null>(null);
 
-const Empty: LottoState = { owner: null, currentPulls: 0, maxPulls: 1, nextPullAt: null, clockOffsetMs: 0, loading: true, spending: false };
+const Empty: LottoState = { owner: null, currentPulls: 0, maxPulls: 1, nextPullAt: null, clockOffsetMs: 0, guarantee: null, loading: true, spending: false };
 
-/** Pull counts always come from the server's answer, never from counting locally. */
+/**
+ * Pull counts always come from the server's answer, never from counting locally.
+ * Answers without `guaranteed_rarity` (a bonus claim) keep the guarantee already known.
+ */
 function fromServer(state: LottoState, owner: string, row: LottoStateRow): LottoState {
   const serverNow = parseTimestamp(row.server_now);
   return {
@@ -52,6 +62,7 @@ function fromServer(state: LottoState, owner: string, row: LottoStateRow): Lotto
     maxPulls: row.max_lotto_pulls,
     nextPullAt: parseTimestamp(row.next_pull_at),
     clockOffsetMs: serverNow ? serverNow.getTime() - Date.now() : state.clockOffsetMs,
+    guarantee: row.guaranteed_rarity === undefined ? state.guarantee : toGuarantee(row.guaranteed_rarity),
     loading: false,
   };
 }
@@ -84,14 +95,14 @@ export function LottoProvider({ children }: { children: ReactNode }) {
     if (userId) await fetchLottoState().then(onLoaded, onLoadFailed);
   }, [userId, onLoaded, onLoadFailed]);
 
-  const spend = useCallback(async () => {
+  const spend = useCallback(async (language: string) => {
     if (!userId) throw new Error('Sign in to pull a capsule.');
     // Taps while a spend is in flight share it, so only one pull is spent.
     if (spendingRef.current) return spendingRef.current;
     const run = (async (): Promise<SpendResult> => {
       setState((s) => ({ ...s, spending: true }));
       try {
-        const result = await spendLottoPull();
+        const result = await spendLottoPull(language);
         if (result.ok) {
           setState((s) => fromServer(s, userId, result.state));
           // The spend also counts toward today's streak on the server. The Lotto screen shows the
@@ -156,6 +167,7 @@ export function LottoProvider({ children }: { children: ReactNode }) {
     maxPulls: state.maxPulls,
     nextPullAt: state.nextPullAt,
     clockOffsetMs: state.clockOffsetMs,
+    guarantee: state.guarantee,
     loading: state.loading,
     spending: state.spending,
     refresh,

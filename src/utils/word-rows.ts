@@ -25,19 +25,20 @@ export async function fetchDeck(languageName: string): Promise<Word[]> {
   return (await fetchDeckRows(languageName)).map(toWord);
 }
 
-/** The words a Lotto pull can draw: the deck without those whose `lotto_eligible` is false. */
-export async function fetchLottoDeck(languageName: string): Promise<Word[]> {
-  return (await fetchDeckRows(languageName, { lottoOnly: true })).map(toWord);
+/** One word by id, e.g. the one a Lotto pull gave. */
+export async function fetchWord(id: number): Promise<LoadedWord> {
+  const { data, error } = await supabase.from('words').select(WordColumns).eq('id', id).single().overrideTypes<WordRow, { merge: false }>();
+  if (error) throw new Error(error.message);
+  return toWord(data);
 }
 
 /** The deck as raw rows, for callers that need the database's own `word_type`. */
-export async function fetchDeckRows(languageName: string, { lottoOnly = false } = {}): Promise<WordRow[]> {
-  let query = supabase
+export async function fetchDeckRows(languageName: string): Promise<WordRow[]> {
+  const { data, error } = await supabase
     .from('words')
     .select(WordColumns.replace('language:language_id(name)', 'language:language_id!inner(name)'))
-    .ilike('language.name', languageName);
-  if (lottoOnly) query = query.eq('lotto_eligible', true);
-  const { data, error } = await query.overrideTypes<WordRow[], { merge: false }>();
+    .ilike('language.name', languageName)
+    .overrideTypes<WordRow[], { merge: false }>();
   if (error) throw new Error(error.message);
   return data;
 }
@@ -65,7 +66,7 @@ const Rarities: Record<string, Rarity> = {
 };
 
 /** "Super Rare", "super_rare" and "SuperRare" all become `superRare`. */
-function toRarity(value: string): Rarity {
+export function toRarity(value: string): Rarity {
   return Rarities[value.toLowerCase().replace(/[\s_-]/g, '')] ?? 'common';
 }
 

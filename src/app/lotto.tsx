@@ -1,14 +1,25 @@
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Alert, Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { Easing, FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  FadeIn,
+  ZoomIn,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { Capsule } from '@/components/art/capsule';
-import { GachaMachine, type MachinePhase } from '@/components/gacha-machine';
+import { FloodMs, GachaMachine, type ChargeStep, type MachinePhase } from '@/components/gacha-machine';
 import { CloseIcon, RechargeClockIcon } from '@/components/icons';
 import { CardShine, RareBackdrop, RareBanner, RareCardEntrance, RareStage, useRareReveal } from '@/components/rare-reveal';
 import { Screen, ScreenHeader } from '@/components/screen';
@@ -16,13 +27,16 @@ import { RoundButton } from '@/components/sticker';
 import { StreakPopup } from '@/components/streak-popup';
 import { Txt } from '@/components/text';
 import { WordCard } from '@/components/word-card';
-import { RarityInfo } from '@/data/rarity';
+import { RarityInfo, starString, type Rarity } from '@/data/rarity';
 import { useGame, type PullResult } from '@/state/game';
 import { useLotto, useLottoCountdown } from '@/state/lotto';
 import { useStreak } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Bounce, Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
+
+/** How long the machine waits after the screen opens before a guaranteed pull starts charging, as in the design. */
+const ChargeDelayMs = 700;
 
 export default function LottoScreen() {
   const p = usePalette();
@@ -35,6 +49,12 @@ export default function LottoScreen() {
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   // `phase` only changes on the next render, so a second tap in the same frame is stopped here.
   const busy = useRef(false);
+  const reduce = useReducedMotion();
+  // Bumped whenever the screen gains focus or a card closes, so a guaranteed pull charges up again each time.
+  const [run, setRun] = useState(0);
+  const [charge, setCharge] = useState<{ key: string; step: ChargeStep } | null>(null);
+  // The spend clears the guarantee straight away, so the one being pulled is held until the card closes.
+  const [pulling, setPulling] = useState<Rarity | null>(null);
 
   useEffect(() => {
     const pending = timers.current;
@@ -45,10 +65,34 @@ export default function LottoScreen() {
   useFocusEffect(
     useCallback(() => {
       void refresh();
+      setRun((r) => r + 1);
     }, [refresh])
   );
 
-  const canPull = lotto.currentPulls > 0 && !lotto.spending && phase === 'idle';
+  // A guaranteed pull charges the machine first: after a moment every ball floods with the rarity's colour,
+  // and only then can the handle be pulled. Reduced motion skips straight to charged.
+  const chargeKey = lotto.guarantee ? `${lotto.guarantee}:${run}` : null;
+  useEffect(() => {
+    if (!chargeKey || !lotto.guarantee) return;
+    const name = RarityInfo[lotto.guarantee].name;
+    const timers = [
+      setTimeout(() => setCharge({ key: chargeKey, step: 'flood' }), reduce ? 0 : ChargeDelayMs),
+      setTimeout(
+        () => {
+          setCharge({ key: chargeKey, step: 'charged' });
+          AccessibilityInfo.announceForAccessibility(`Every capsule is now ${name}. Pull the handle.`);
+        },
+        reduce ? 0 : ChargeDelayMs + FloodMs
+      ),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [chargeKey, lotto.guarantee, reduce]);
+
+  const guarantee = phase === 'idle' ? lotto.guarantee : pulling;
+  const chargeStep: ChargeStep = phase !== 'idle' ? 'charged' : charge && charge.key === chargeKey ? charge.step : 'armed';
+  const charging = !!guarantee && chargeStep !== 'charged';
+
+  const canPull = lotto.currentPulls > 0 && !lotto.spending && phase === 'idle' && !charging;
 
   const onPull = async () => {
     if (phase !== 'idle' || busy.current) return;
@@ -56,6 +100,7 @@ export default function LottoScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     // Spin while the word is fetched, so the machine reacts to the tap straight away.
     setPrize(null);
+    setPulling(lotto.guarantee);
     setPhase('spin');
     const started = Date.now();
     let result: PullResult | null;
@@ -82,15 +127,24 @@ export default function LottoScreen() {
   };
 
   const prizeColor = prize ? RarityInfo[prize.word.rarity].color : p.sky;
+  const flooded = guarantee && chargeStep !== 'armed' ? guarantee : null;
+  const status = phase === 'reveal' ? 'Pulled' : phase !== 'idle' ? 'Here it comes…' : charging ? 'Charging…' : 'Pull!';
+
+  const closeReveal = () => {
+    setPhase('idle');
+    setRun((r) => r + 1);
+  };
 
   return (
     <View style={{ flex: 1 }}>
-      <Screen background={p.pinkSoft} style={{ gap: 14 }}>
+      <Screen background={flooded ? p[RarityInfo[flooded].soft] : p.pinkSoft} style={{ gap: 14 }}>
         <ScreenHeader backLabel="Back to home" title="Lotto" />
 
-        <GachaMachine phase={phase} canPull={canPull} onPull={onPull} prizeColor={prizeColor} />
+        <GachaMachine phase={phase} canPull={canPull} onPull={onPull} prizeColor={prizeColor} guarantee={guarantee} charge={chargeStep} />
 
-        {lotto.loading || (lotto.currentPulls === 0 && !countdown) ? (
+        {guarantee && (lotto.currentPulls > 0 || phase !== 'idle') ? (
+          <GuaranteedTicket rarity={guarantee} lit={!!flooded} status={status} />
+        ) : lotto.loading || (lotto.currentPulls === 0 && !countdown) ? (
           <View style={{ height: 64, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Space[4], backgroundColor: p.surfaceRaised, borderColor: p.line, borderWidth: Stroke[2], borderRadius: Radius.md }}>
             <Txt variant="label" color={p.inkMuted} style={{ fontFamily: Font.body900 }}>
               {lotto.loading ? 'Checking your pulls…' : "Couldn't check your pulls"}
@@ -122,11 +176,82 @@ export default function LottoScreen() {
       </Screen>
 
       {phase === 'reveal' && prize && (
-        <Reveal prize={prize} onClose={() => setPhase('idle')} />
+        <Reveal prize={prize} onClose={closeReveal} />
       )}
       {/* The first pull of the day grows the streak; celebrate once the word card is closed. */}
       {streak.streakPopup && phase === 'idle' && <StreakPopup reason={streak.streakPopup} streak={streak.streak} onClose={streak.closeStreakPopup} />}
     </View>
+  );
+}
+
+type TicketProps = { rarity: Rarity; lit: boolean; status: string };
+
+/**
+ * Stands in for the pulls bar while the next pull is guaranteed: a ticket naming the rarity, with a status chip.
+ * It lights up in the rarity's colour, with a little wobble, once the machine starts charging.
+ */
+function GuaranteedTicket({ rarity, lit, status }: TicketProps) {
+  const p = usePalette();
+  const info = RarityInfo[rarity];
+  const wobble = useSharedValue(0);
+
+  useEffect(() => {
+    if (!lit) return;
+    const step = { duration: 200, easing: Easing.out(Easing.quad) };
+    wobble.set(withSequence(withTiming(1, step), withTiming(0, { ...step, duration: 300 })));
+  }, [lit, wobble]);
+
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: 1 + 0.06 * wobble.get() }, { rotate: `${-1.5 * wobble.get()}deg` }] }));
+
+  return (
+    <Animated.View
+      accessible
+      accessibilityLabel={`Guaranteed ${info.name} pull. ${status}`}
+      style={[
+        {
+          height: 64,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          paddingLeft: 14,
+          paddingRight: 10,
+          backgroundColor: lit ? info.color : p.surfaceRaised,
+          borderColor: p.line,
+          borderWidth: Stroke[2],
+          borderRadius: Radius.md,
+        },
+        style,
+      ]}>
+      <TicketIcon line={p.line} paper={p.paper} star={p.sunshine} />
+      <View style={{ gap: 1, flexShrink: 1 }}>
+        <Txt color={p.onBright} style={{ fontFamily: Font.body900, fontSize: 12, lineHeight: 16, letterSpacing: 0.7 }}>
+          {starString(rarity)} GUARANTEED
+        </Txt>
+        <Txt color={p.onBright} style={{ fontFamily: Font.display700, fontSize: 20, lineHeight: 24 }}>
+          {info.name} pull
+        </Txt>
+      </View>
+      <View style={{ marginLeft: 'auto', paddingVertical: 5, paddingHorizontal: 12, backgroundColor: p.white, borderColor: p.line, borderWidth: 2, borderRadius: Radius.pill }}>
+        <Txt color={p.onBright} style={{ fontFamily: Font.body800, fontSize: 14, lineHeight: 18 }}>
+          {status}
+        </Txt>
+      </View>
+    </Animated.View>
+  );
+}
+
+function TicketIcon({ line, paper, star }: { line: string; paper: string; star: string }) {
+  return (
+    <Svg width={34} height={34} viewBox="0 0 34 34">
+      <Path
+        d="M5,9 h24 a3,3 0 0 1 3,3 v2 a3,3 0 0 0 0,6 v2 a3,3 0 0 1 -3,3 h-24 a3,3 0 0 1 -3,-3 v-2 a3,3 0 0 0 0,-6 v-2 a3,3 0 0 1 3,-3z"
+        fill={paper}
+        stroke={line}
+        strokeWidth={2.5}
+        strokeLinejoin="round"
+      />
+      <Path d="M17,12.5 l1.4,3 3.2,.4 -2.4,2.2 .6,3.2 -2.8,-1.6 -2.8,1.6 .6,-3.2 -2.4,-2.2 3.2,-.4z" fill={star} stroke={line} strokeWidth={1.6} strokeLinejoin="round" />
+    </Svg>
   );
 }
 
