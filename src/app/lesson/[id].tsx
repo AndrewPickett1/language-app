@@ -11,9 +11,11 @@ import { FormPick } from '@/components/lesson/form-pick';
 import { GenderPick } from '@/components/lesson/gender-pick';
 import { MatchPairs } from '@/components/lesson/match-pairs';
 import { MeetWord } from '@/components/lesson/meet-word';
-import { ModuleDone } from '@/components/lesson/module-done';
+import { ModuleDone, PullOrLater } from '@/components/lesson/module-done';
 import { FeedbackSheet, type Feedback } from '@/components/lesson/shared';
 import { VerbIntro } from '@/components/lesson/verb-intro';
+import { MasteryMoment, masteryRewards } from '@/components/mastery/mastery-moment';
+import { hasChanged, WordsGrew } from '@/components/mastery/words-grew';
 import { goBack, Screen, ScreenHeader } from '@/components/screen';
 import { StreakPopup } from '@/components/streak-popup';
 import { PillButton } from '@/components/sticker';
@@ -23,13 +25,14 @@ import { buildLesson, RetryKinds, type LessonWord, type Step } from '@/data/less
 import { Pronouns } from '@/data/pronouns';
 import { buildVerbLesson, isVerbModule, verbDrill, type VerbDrill } from '@/data/verb-lesson';
 import { useLanguage } from '@/state/language';
+import { useMyWords } from '@/state/my-words';
 import { useStreak } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
 import { fetchConjugation } from '@/utils/conjugations';
 import { fetchLesson, fetchLessonDeck, useFinishModule, type Lesson } from '@/utils/modules';
-import { sendWordResults, type WordResult } from '@/utils/word-stats';
+import { sendWordResults, type AnswerKind, type WordResult } from '@/utils/word-stats';
 
 type Loaded = { id: string; lesson: Lesson | null; deck: LessonWord[]; drills: VerbDrill[]; error: string | null };
 
@@ -88,15 +91,19 @@ type Stats = { combo: number; best: number; right: number; total: number };
 function LessonSession({ lesson, deck, drills }: { lesson: Lesson; deck: LessonWord[]; drills: VerbDrill[] }) {
   const p = usePalette();
   const streak = useStreak();
-  const { finish, earnedPull } = useFinishModule(lesson.id);
+  const { finish, earnedPull, growth } = useFinishModule(lesson.id);
+  const myWords = useMyWords();
+  // After Module done: how the words grew, with a mastery moment for each newly mastered word.
+  const [showGrowth, setShowGrowth] = useState(false);
+  const [moments, setMoments] = useState<{ queue: string[]; at: number; fromRow?: boolean } | null>(null);
   const [steps, setSteps] = useState<Step[]>(() => (drills.length > 0 ? buildVerbLesson(drills) : buildLesson(lesson.words, deck)));
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [stats, setStats] = useState<Stats>({ combo: 0, best: 0, right: 0, total: 0 });
   const teachesArticles = lesson.words.some((w) => w.kind === 'Article');
   const firstGender = steps.findIndex((s) => s.kind === 'gender');
-  // Word sightings for user_words. The module's words only become the learner's when it's finished, so
-  // they're sent then (or, for words already owned, when the learner quits).
+  // Answers for user_words. The module's words only become the learner's when it's finished, so they're
+  // sent then (or, for words already owned, when the learner quits). Meet the word isn't a question, so it sends nothing.
   const seen = useRef<WordResult[]>([]);
 
   useEffect(() => {
@@ -106,9 +113,10 @@ function LessonSession({ lesson, deck, drills }: { lesson: Lesson; deck: LessonW
     };
   }, []);
 
-  // A conjugated form's answers count toward its verb.
-  const record = (right: boolean, word: LessonWord) => {
-    seen.current.push({ wordId: word.formOf ?? word.id, correct: right });
+  // A conjugated form's answers count toward its verb. Listen & pick is recall; every other step picks
+  // from options, so it's recognition. TODO: send 'production' from typing steps once a lesson has them.
+  const record = (right: boolean, word: LessonWord, kind: AnswerKind = 'recognition') => {
+    seen.current.push({ wordId: word.formOf ?? word.id, correct: right, kind });
     setStats((s) => {
       const combo = right ? s.combo + 1 : 0;
       return { combo, best: Math.max(s.best, combo), right: s.right + (right ? 1 : 0), total: s.total + 1 };
@@ -119,7 +127,8 @@ function LessonSession({ lesson, deck, drills }: { lesson: Lesson; deck: LessonW
   const answer = (right: boolean, next: Feedback) => {
     const step = steps[index];
     if (step.kind === 'gender') record(right, step.noun);
-    else if (step.kind === 'meaning' || step.kind === 'pick' || step.kind === 'listen' || step.kind === 'form') record(right, step.word);
+    else if (step.kind === 'listen') record(right, step.word, 'recall');
+    else if (step.kind === 'meaning' || step.kind === 'pick' || step.kind === 'form') record(right, step.word);
     if (!right && !step.retry && RetryKinds.includes(step.kind)) {
       setSteps((s) => [...s, { ...step, key: `${step.key}-retry`, retry: true }]);
     }
@@ -137,17 +146,53 @@ function LessonSession({ lesson, deck, drills }: { lesson: Lesson; deck: LessonW
   };
 
   if (index >= steps.length) {
+    const changes = growth?.words.filter(hasChanged) ?? [];
+    const mastered = changes.filter((c) => c.newlyMastered).map((c) => c.wordId);
+    const rewards = growth ? masteryRewards(mastered, growth) : {};
+    const wordFor = (id: string) => lesson.words.find((w) => w.id === id) ?? deck.find((w) => w.id === id) ?? myWords.words.find((w) => w.id === id);
+    const momentId = moments?.queue[moments.at];
+    const momentWord = momentId ? wordFor(momentId) : undefined;
+
     return (
       <>
-        <ModuleDone
-          unit={lesson.unit}
-          title={lesson.title}
-          words={lesson.words}
-          bestCombo={stats.best}
-          accuracy={accuracy}
-          earnedPull={earnedPull}
-        />
-        {streak.streakPopup && <StreakPopup reason={streak.streakPopup} streak={streak.streak} onClose={streak.closeStreakPopup} />}
+        {showGrowth ? (
+          <WordsGrew
+            heading={`Level ${lesson.unit} · ${lesson.title}`}
+            changes={changes}
+            wordFor={wordFor}
+            onOpenMastery={(id) => setMoments({ queue: [id], at: 0, fromRow: true })}
+            footer={earnedPull ? <PullOrLater /> : <PillButton label="Continue" fill={p.pink} style={{ minHeight: 60 }} onPress={() => goBack('/level-map')} />}
+          />
+        ) : (
+          <ModuleDone
+            unit={lesson.unit}
+            title={lesson.title}
+            words={lesson.words}
+            bestCombo={stats.best}
+            accuracy={accuracy}
+            earnedPull={earnedPull}
+            onContinue={
+              changes.length > 0
+                ? () => {
+                    setShowGrowth(true);
+                    if (mastered.length > 0) setMoments({ queue: mastered, at: 0 });
+                  }
+                : undefined
+            }
+          />
+        )}
+        {!showGrowth && streak.streakPopup && <StreakPopup reason={streak.streakPopup} streak={streak.streak} onClose={streak.closeStreakPopup} />}
+        {moments && momentId && momentWord && (
+          <MasteryMoment
+            key={momentId}
+            word={momentWord}
+            progress={myWords.progress}
+            reward={rewards[momentId] ?? { pull: false, guarantee: false, total: growth?.masteredTotal ?? 0 }}
+            position={moments.queue.length > 1 ? `${moments.at + 1} of ${moments.queue.length}` : undefined}
+            nextLabel={moments.at + 1 < moments.queue.length ? 'Next word' : moments.fromRow ? 'Back to your words' : 'See how your words grew'}
+            onNext={() => setMoments(moments.at + 1 < moments.queue.length ? { ...moments, at: moments.at + 1 } : null)}
+          />
+        )}
       </>
     );
   }
@@ -175,24 +220,10 @@ function LessonSession({ lesson, deck, drills }: { lesson: Lesson; deck: LessonW
         />
 
         {step.kind === 'meet' && (
-          <MeetWord
-            key={step.key}
-            word={step.word}
-            onDone={() => {
-              seen.current.push({ wordId: step.word.id, correct: null });
-              advance();
-            }}
-          />
+          <MeetWord key={step.key} word={step.word} onDone={advance} />
         )}
         {step.kind === 'verb' && (
-          <VerbIntro
-            key={step.key}
-            verb={step.verb}
-            onDone={() => {
-              seen.current.push({ wordId: step.verb.id, correct: null });
-              advance();
-            }}
-          />
+          <VerbIntro key={step.key} verb={step.verb} onDone={advance} />
         )}
         {(step.kind === 'meaning' || step.kind === 'pick' || step.kind === 'listen') && (
           <ChoiceQuiz key={step.key} kind={step.kind} word={step.word} options={step.options} retry={step.retry} onAnswer={answer} />

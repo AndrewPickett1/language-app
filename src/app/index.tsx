@@ -28,6 +28,7 @@ export default function HomeScreen() {
   const game = useGame();
   const { refresh: refreshStreak } = useStreak();
   const myWords = useMyWords();
+  const { refresh: refreshMyWords } = myWords;
   const { refresh: refreshLotto } = useLotto();
   const { width } = useWindowDimensions();
   // Tiles are square where there's room; on short phones they give up height before the streak card does.
@@ -40,7 +41,9 @@ export default function HomeScreen() {
     useCallback(() => {
       void refreshLotto();
       void refreshStreak();
-    }, [refreshLotto, refreshStreak])
+      // Exercises change word strength on the server, which the "to review" count reads.
+      void refreshMyWords();
+    }, [refreshLotto, refreshStreak, refreshMyWords])
   );
 
   return (

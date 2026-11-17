@@ -44,7 +44,7 @@ function englishVerb(meaning: string, person: PersonCode) {
 }
 
 /** French drops je to j' before a vowel or a silent h: j'aime, j'habite. */
-function withPronoun(pronoun: string, form: string) {
+export function withPronoun(pronoun: string, form: string) {
   return pronoun.toLowerCase() === 'je' && /^[aeiouyhàâäéèêëîïôöùûü]/i.test(form) ? `${pronoun.slice(0, 1)}'${form}` : `${pronoun} ${form}`;
 }
 

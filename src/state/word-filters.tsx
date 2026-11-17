@@ -1,7 +1,9 @@
 import { createContext, use, useState, type ReactNode } from 'react';
 
+import type { Stage } from '@/data/mastery';
 import { RarityOrder, type Rarity } from '@/data/rarity';
 import { bareWord, type Word, type WordType } from '@/data/words';
+import { progressFor, type WordProgress } from '@/utils/word-progress';
 
 export type GenderFilter = 'any' | 'M' | 'F';
 export type WordSort = 'rarity' | 'az' | 'new';
@@ -14,25 +16,31 @@ export type WordFilters = {
   types: WordType[];
   /** Empty means every rarity. */
   rarities: Rarity[];
+  /** How well the learner knows the word (its progress stage). Empty means every stage. */
+  stages: Stage[];
   gender: GenderFilter;
   sort: WordSort;
   /** Set by the column headers; when present it wins over `sort`. */
   column: ColumnSort | null;
 };
 
-export const NoFilters: WordFilters = { types: [], rarities: [], gender: 'any', sort: 'new', column: null };
+export const NoFilters: WordFilters = { types: [], rarities: [], stages: [], gender: 'any', sort: 'new', column: null };
 
 /** True when the filters hide any words (sorting alone doesn't count). */
 export function isFiltered(f: WordFilters) {
-  return f.types.length > 0 || f.rarities.length > 0 || f.gender !== 'any';
+  return f.types.length > 0 || f.rarities.length > 0 || f.stages.length > 0 || f.gender !== 'any';
 }
 
-/** Filters and sorts `words`. `collected` is the ids in the order they were won, for "Newest". */
-export function applyWordFilters(words: Word[], f: WordFilters, collected: string[]): Word[] {
+/**
+ * Filters and sorts `words`. `collected` is the ids in the order they were won, for "Newest", and
+ * `progress` (from `useMyWords`) gives each word's stage.
+ */
+export function applyWordFilters(words: Word[], f: WordFilters, collected: string[], progress: Record<string, WordProgress>): Word[] {
   const rows = words.filter(
     (w) =>
       (f.types.length === 0 || f.types.includes(w.type)) &&
       (f.rarities.length === 0 || f.rarities.includes(w.rarity)) &&
+      (f.stages.length === 0 || f.stages.includes(progressFor(progress, w.id).stage)) &&
       (f.gender === 'any' || w.gender === f.gender)
   );
   if (f.column) {

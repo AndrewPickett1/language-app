@@ -1,48 +1,116 @@
+import type { Stage } from '@/data/mastery';
 import { supabase } from '@/utils/supabase';
 
-/** One sighting of a word. `correct` is null when it was shown without a question (Meet the word). */
-export type WordResult = { wordId: string; correct: boolean | null };
+/**
+ * How hard an answer was, which decides how much it grows the word's strength. Only `production` answers
+ * count toward the "typed or built it twice" mastery rule.
+ *
+ *   recognition — picking from options: Pick the meaning, Pick the word, Match pairs, Gender pick, Flashcards, Matching, Gender
+ *   recall      — Listen & pick
+ *   production  — typing or building the word
+ *
+ * TODO: nothing sends `production` yet, so no word can pass the "typed or built it twice" rule and no one
+ * can master a word. Send it from Spelling (and Build the sentence) once those exercises exist.
+ */
+export type AnswerKind = 'recognition' | 'recall' | 'production';
+
+/** One answer to a question about a word. Words shown without a question (Meet the word) aren't sent. */
+export type WordResult = { wordId: string; correct: boolean; kind: AnswerKind };
+
+/** How one word changed in a `record_word_results` call. */
+export type WordChange = {
+  wordId: string;
+  oldStage: Stage;
+  newStage: Stage;
+  oldStrength: number;
+  newStrength: number;
+  newlyMastered: boolean;
+};
+
+/** What a `record_word_results` call changed, and the mastery rewards the server granted for it. */
+export type WordResultsSummary = {
+  /** Newly mastered words first. */
+  words: WordChange[];
+  /** Words mastered in this call. */
+  masteredCount: number;
+  /** The learner's mastered words in total. */
+  masteredTotal: number;
+  /** A pull per newly mastered word, 0 when pulls were already full. */
+  pullsGranted: number;
+  /** Guaranteed Rare pulls, one every 10 mastered words. */
+  guaranteesGranted: number;
+  nextGuaranteeAt: number;
+};
+
+type SummaryRow = {
+  words: { word_id: number; old_stage: Stage; new_stage: Stage; old_strength: number; new_strength: number; newly_mastered: boolean }[];
+  mastered_count: number;
+  mastered_total: number;
+  pulls_granted: number;
+  guarantees_granted: number;
+  next_guarantee_at: number;
+};
+
+/** The server allows this many results per call. */
+const MaxResults = 200;
 
 /**
- * Records sightings, in order, on the learner's `user_words` rows through `record_word_results`: each one
- * counts as seen and stamps `last_seen_at`, a right answer counts as correct and grows `correct_streak`,
- * and a wrong one resets it. Words the learner doesn't own are skipped by the server.
+ * Records answers, in order, through `record_word_results`. The server updates each word's strength,
+ * stage and mastery, grants mastery rewards, and returns what changed. Words the learner doesn't own are
+ * skipped by the server. More answers than one call takes go in several calls, merged into one summary.
  */
-export async function recordWordResults(results: WordResult[]): Promise<void> {
-  if (results.length === 0) return;
-  const { error } = await supabase.rpc('record_word_results', {
-    p_results: results.map((r) => ({ word_id: Number(r.wordId), correct: r.correct })),
+export async function recordWordResults(results: WordResult[]): Promise<WordResultsSummary | null> {
+  let summary: WordResultsSummary | null = null;
+  for (let i = 0; i < results.length; i += MaxResults) {
+    const next = await recordChunk(results.slice(i, i + MaxResults));
+    summary = summary ? mergeSummaries(summary, next) : next;
+  }
+  return summary;
+}
+
+async function recordChunk(results: WordResult[]): Promise<WordResultsSummary> {
+  const { data: row, error } = await supabase.rpc('record_word_results', {
+    p_results: results.map((r) => ({ word_id: Number(r.wordId), correct: r.correct, kind: r.kind })),
   });
   if (error) throw new Error(error.message);
+  // A jsonb result, which the untyped client can't describe.
+  const data = row as SummaryRow | null;
+  if (!data) throw new Error('record_word_results returned nothing.');
+  return {
+    words: data.words.map((w) => ({
+      wordId: String(w.word_id),
+      oldStage: w.old_stage,
+      newStage: w.new_stage,
+      oldStrength: w.old_strength,
+      newStrength: w.new_strength,
+      newlyMastered: w.newly_mastered,
+    })),
+    masteredCount: data.mastered_count,
+    masteredTotal: data.mastered_total,
+    pullsGranted: data.pulls_granted,
+    guaranteesGranted: data.guarantees_granted,
+    nextGuaranteeAt: data.next_guarantee_at,
+  };
+}
+
+/** A word in both keeps where it started in `a` and where it ended in `b`. Newly mastered words stay first. */
+function mergeSummaries(a: WordResultsSummary, b: WordResultsSummary): WordResultsSummary {
+  const words = new Map(a.words.map((w) => [w.wordId, w]));
+  for (const w of b.words) {
+    const first = words.get(w.wordId);
+    words.set(w.wordId, first ? { ...w, oldStage: first.oldStage, oldStrength: first.oldStrength, newlyMastered: first.newlyMastered || w.newlyMastered } : w);
+  }
+  return {
+    words: [...words.values()].sort((x, y) => Number(y.newlyMastered) - Number(x.newlyMastered)),
+    masteredCount: a.masteredCount + b.masteredCount,
+    masteredTotal: b.masteredTotal,
+    pullsGranted: a.pullsGranted + b.pullsGranted,
+    guaranteesGranted: a.guaranteesGranted + b.guaranteesGranted,
+    nextGuaranteeAt: b.nextGuaranteeAt,
+  };
 }
 
 /** Fire and forget, for answers that shouldn't hold up the screen. */
 export function sendWordResults(results: WordResult[]) {
   recordWordResults(results).catch((e: Error) => console.warn(`Couldn't record word results: ${e.message}`));
-}
-
-/** A learner's answer record for one word, from its `user_words` row. */
-export type WordStats = { timesSeen: number; timesCorrect: number; correctStreak: number; lastSeenAt: Date | null };
-
-type WordStatsRow = { word_id: number; times_seen: number; times_correct: number; correct_streak: number; last_seen_at: string | null };
-
-/** The learner's answer stats, keyed by word id. Words without a `user_words` row aren't in it. */
-export async function fetchWordStats(userId: string): Promise<Record<string, WordStats>> {
-  const { data, error } = await supabase
-    .from('user_words')
-    .select('word_id, times_seen, times_correct, correct_streak, last_seen_at')
-    .eq('user_id', userId)
-    .overrideTypes<WordStatsRow[], { merge: false }>();
-  if (error) throw new Error(error.message);
-  // A word won twice has two rows, which record_word_results updates alike, so either will do.
-  const stats: Record<string, WordStats> = {};
-  for (const row of data) {
-    stats[String(row.word_id)] = {
-      timesSeen: row.times_seen,
-      timesCorrect: row.times_correct,
-      correctStreak: row.correct_streak,
-      lastSeenAt: row.last_seen_at ? new Date(row.last_seen_at) : null,
-    };
-  }
-  return stats;
 }

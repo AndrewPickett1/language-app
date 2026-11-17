@@ -28,7 +28,7 @@ const Headers: [WordColumn, string, string][] = [
 export default function WordsScreen() {
   const p = usePalette();
   const insets = useSafeAreaInsets();
-  const { words, otherLanguageCount, collected, loading, error, refresh, canAddToday } = useMyWords();
+  const { words, otherLanguageCount, collected, progress, loading, error, refresh, canAddToday } = useMyWords();
   const { filters, setFilters } = useWordFilters();
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
@@ -41,7 +41,7 @@ export default function WordsScreen() {
     }, [refresh])
   );
 
-  const filtered = applyWordFilters(words, filters, collected);
+  const filtered = applyWordFilters(words, filters, collected, progress);
   // Searches the shown word and meaning anywhere, ignoring case and accents.
   const needle = fold(query.trim());
   const rows = needle ? filtered.filter((w) => fold(bareWord(w.word)).includes(needle) || fold(shownMeaning(w.meaning)).includes(needle)) : filtered;

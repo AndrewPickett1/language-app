@@ -6,28 +6,26 @@ import { useLanguage } from '@/state/language';
 import { useLotto } from '@/state/lotto';
 import { useMyWords } from '@/state/my-words';
 import { fetchWord } from '@/utils/word-rows';
-import { sendWordResults } from '@/utils/word-stats';
+import { hasMastered } from '@/data/mastery';
+import { progressFor } from '@/utils/word-progress';
+import { sendWordResults, type AnswerKind } from '@/utils/word-stats';
 
 export type PullResult = { word: Word; isNew: boolean };
 
-/** Correct answers before a word stops showing up in "to review". */
-const Mastered = 3;
-
 type GameState = {
   collected: string[];
-  correct: Record<string, number>;
 };
 
 type Game = GameState & {
-  /** The learner's words in the current language with fewer than `Mastered` correct Study answers. */
+  /** The learner's words in the current language that aren't mastered, plus mastered ones gone rusty. */
   reviewCount: number;
   /**
    * Spends a pull on the server, which picks a word from the current language (honouring any guarantee)
    * and saves it to the learner's words. Null when no pulls are left; throws if the spend or loading the word fails.
    */
   pull: () => Promise<PullResult | null>;
-  /** Counts an exercise answer toward mastery and records it on the learner's `user_words` row. */
-  recordAnswer: (id: string, right: boolean) => void;
+  /** Records an exercise answer on the learner's `user_words` row, which grows or fades the word's strength. */
+  recordAnswer: (id: string, right: boolean, kind?: AnswerKind) => void;
 };
 
 const GameContext = createContext<Game | null>(null);
@@ -35,7 +33,6 @@ const GameContext = createContext<Game | null>(null);
 function initialState(): GameState {
   return {
     collected: StarterWordIds,
-    correct: {},
   };
 }
 
@@ -47,15 +44,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const lotto = useLotto();
 
   // Stable across renders so screens can use them in effects.
-  const recordAnswer = useCallback((id: string, right: boolean) => {
-    sendWordResults([{ wordId: id, correct: right }]);
-    if (!right) return;
-    setState((s) => ({ ...s, correct: { ...s.correct, [id]: (s.correct[id] ?? 0) + 1 } }));
+  const recordAnswer = useCallback((id: string, right: boolean, kind: AnswerKind = 'recognition') => {
+    sendWordResults([{ wordId: id, correct: right, kind }]);
   }, []);
 
   const game: Game = {
     ...state,
-    reviewCount: myWords.words.filter((w) => (state.correct[w.id] ?? 0) < Mastered).length,
+    reviewCount: myWords.words.filter((w) => {
+      const { stage } = progressFor(myWords.progress, w.id);
+      return stage === 'rusty' || !hasMastered(stage);
+    }).length,
     async pull() {
       if (lotto.currentPulls <= 0) return null;
       if (!userId) throw new Error('Sign in to keep the words you win.');

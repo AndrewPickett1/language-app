@@ -1,11 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { ChevronIcon } from '@/components/icons';
+import { ChevronIcon, FlipIcon } from '@/components/icons';
+import { WordStatsCard } from '@/components/mastery/word-stats-card';
 import { Screen, ScreenHeader, goBack } from '@/components/screen';
 import { RoundButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
@@ -15,17 +16,22 @@ import type { Word } from '@/data/words';
 import { useMyWords } from '@/state/my-words';
 import { Space } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
+import { progressFor } from '@/utils/word-progress';
 
 type Role = 'prev' | 'current' | 'next';
+/** The word side of the card, or its stats on the back. */
+type Side = 'word' | 'stats';
 
+/** A card opens on its word, or on its stats with `side=stats` (from My words). Every card in the deck shows the same side. */
 export default function WordCardScreen() {
   const p = usePalette();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, side: startSide } = useLocalSearchParams<{ id: string; side?: string }>();
   const { words, loading } = useMyWords();
   const index = words.findIndex((w) => w.id === id);
   const prev = index > 0 ? words[index - 1] : undefined;
   const next = index >= 0 ? words[index + 1] : undefined;
   const flip = useCardFlip(id, prev?.id, next?.id, (to) => router.setParams({ id: to }));
+  const turn = useCardTurn(startSide === 'stats' ? 'stats' : 'word');
 
   const word = words[index];
   if (!word) {
@@ -52,7 +58,7 @@ export default function WordCardScreen() {
       <GestureDetector gesture={flip.pan}>
         <View style={{ flex: 1, minHeight: 0 }}>
           {stack.map((c) => (
-            <StackedCard key={c.word.id} word={c.word} role={c.role} flip={flip} />
+            <StackedCard key={c.word.id} word={c.word} role={c.role} flip={flip} turn={turn} />
           ))}
         </View>
       </GestureDetector>
@@ -86,8 +92,8 @@ function inDeck(progress: number, opacity = 1) {
  * card underneath grows into place. Going forward, the next card is pulled in from the right
  * on top, and the card it covers sinks back into the deck.
  */
-function StackedCard({ word, role, flip }: { word: Word; role: Role; flip: FlipValues }) {
-  const p = usePalette();
+function StackedCard({ word, role, flip, turn }: { word: Word; role: Role; flip: FlipValues; turn: CardTurn }) {
+  const { progress } = useMyWords();
   const { toss, anchor, span } = flip;
   const id = word.id;
 
@@ -115,17 +121,84 @@ function StackedCard({ word, role, flip }: { word: Word; role: Role; flip: FlipV
       accessibilityElementsHidden={hidden}
       importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
       style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, paddingBottom: 6, transformOrigin: '50% 100%' }, style]}>
-      <WordCard
-        word={word}
-        style={{ flex: 1, minHeight: 0 }}
-        leading={
-          <RoundButton accessibilityLabel="Back to my words" fill={p.paper} size={44} lift={3} onPress={() => goBack('/words')}>
-            <ChevronIcon color={p.onBright} />
-          </RoundButton>
-        }
-      />
+      <Animated.View style={[{ flex: 1, minHeight: 0 }, turn.style]}>
+        {turn.side === 'stats' ? (
+          <WordStatsCard
+            word={word}
+            progress={progressFor(progress, word.id)}
+            style={{ flex: 1, minHeight: 0 }}
+            leading={<BackButton />}
+            trailing={<TurnButton to="word" onPress={turn.toggle} />}
+          />
+        ) : (
+          <WordCard word={word} style={{ flex: 1, minHeight: 0 }} leading={<BackButton />} trailing={<TurnButton to="stats" onPress={turn.toggle} />} />
+        )}
+      </Animated.View>
     </Animated.View>
   );
+}
+
+function BackButton() {
+  const p = usePalette();
+  return (
+    <RoundButton accessibilityLabel="Back to my words" fill={p.paper} size={44} lift={3} onPress={() => goBack('/words')}>
+      <ChevronIcon color={p.onBright} />
+    </RoundButton>
+  );
+}
+
+/** Flips the card over, to its stats or back to the word. */
+function TurnButton({ to, onPress }: { to: Side; onPress: () => void }) {
+  const p = usePalette();
+  return (
+    <Sticker
+      accessibilityRole="button"
+      accessibilityLabel={to === 'stats' ? 'Show stats' : 'Show the word'}
+      accessibilityHint={to === 'stats' ? 'Flips the card to how well you know it' : 'Flips the card back to the word'}
+      fill={p.sunshine}
+      lift={3}
+      onPress={onPress}
+      style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+      <FlipIcon color={p.onBright} size={20} />
+    </Sticker>
+  );
+}
+
+const TurnMs = 160;
+
+type CardTurn = { side: Side; toggle: () => void; style: ReturnType<typeof useAnimatedStyle> };
+
+/**
+ * Which side the cards show, and the flip between them: the card narrows to its edge, swaps sides and
+ * opens again. Reduced motion swaps straight away.
+ */
+function useCardTurn(start: Side): CardTurn {
+  const reduce = useReducedMotion();
+  const [side, setSide] = useState<Side>(start);
+  /** 1 face on, 0 edge on. */
+  const open = useSharedValue(1);
+  const busy = useSharedValue(false);
+
+  // Once the other side is showing, open the card back up.
+  useEffect(() => {
+    if (!busy.get()) return;
+    open.set(withTiming(1, { duration: TurnMs, easing: Easing.out(Easing.quad) }, () => busy.set(false)));
+  }, [side, open, busy]);
+
+  const toggle = () => {
+    const to: Side = side === 'word' ? 'stats' : 'word';
+    if (reduce) return setSide(to);
+    if (busy.get()) return;
+    busy.set(true);
+    open.set(
+      withTiming(0, { duration: TurnMs, easing: Easing.in(Easing.quad) }, (finished) => {
+        if (finished) scheduleOnRN(setSide, to);
+      })
+    );
+  };
+
+  const style = useAnimatedStyle(() => ({ transform: [{ scaleX: Math.max(0.02, open.get()) }] }));
+  return { side, toggle, style };
 }
 
 const OutMs = 220;

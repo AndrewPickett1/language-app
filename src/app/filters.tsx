@@ -6,6 +6,7 @@ import { CheckIcon } from '@/components/icons';
 import { Screen, ScreenHeader, goBack } from '@/components/screen';
 import { Panel, PillButton } from '@/components/sticker';
 import { Txt } from '@/components/text';
+import { StageInfo, StageOrder, type Stage } from '@/data/mastery';
 import { RarityInfo, type Rarity } from '@/data/rarity';
 import type { WordType } from '@/data/words';
 import { useMyWords } from '@/state/my-words';
@@ -13,6 +14,7 @@ import { NoFilters, applyWordFilters, useWordFilters, type GenderFilter, type Wo
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
+import { progressFor } from '@/utils/word-progress';
 
 const Types: [WordType, string][] = [
   ['Noun', 'Nouns'],
@@ -41,11 +43,16 @@ function toggle<T>(list: T[], item: T) {
 /** Edits a draft of the "My words" filters; "Show N words" applies it, the close button drops it. */
 export default function FiltersScreen() {
   const p = usePalette();
-  const { words, collected } = useMyWords();
+  const { words, collected, progress } = useMyWords();
   const { filters, setFilters } = useWordFilters();
   const [draft, setDraft] = useState(filters);
 
-  const count = applyWordFilters(words, draft, collected).length;
+  const count = applyWordFilters(words, draft, collected, progress).length;
+  const stageCounts = new Map<Stage, number>();
+  for (const w of words) {
+    const stage = progressFor(progress, w.id).stage;
+    stageCounts.set(stage, (stageCounts.get(stage) ?? 0) + 1);
+  }
 
   return (
     <Screen background={p.grapeSoft}>
@@ -94,6 +101,28 @@ export default function FiltersScreen() {
           </View>
         </Section>
 
+        <Section title="Progress">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Space[2] }}>
+            {StageOrder.map((stage) => {
+              const n = stageCounts.get(stage) ?? 0;
+              return (
+                <Chip
+                  key={stage}
+                  on={draft.stages.includes(stage)}
+                  accessibilityLabel={`${StageInfo[stage].name}, ${n} ${n === 1 ? 'word' : 'words'}`}
+                  onPress={() => setDraft({ ...draft, stages: toggle(draft.stages, stage) })}
+                  style={{ paddingLeft: 10, paddingRight: 14, gap: 7 }}>
+                  <View style={{ width: 16, height: 16, backgroundColor: StageInfo[stage].ring ?? p.surfaceSunken, borderColor: p.line, borderWidth: Stroke[1], borderRadius: Radius.pill }} />
+                  <ChipLabel>{StageInfo[stage].name}</ChipLabel>
+                  <Txt color={p.onBrightMuted} style={{ fontFamily: Font.body800, fontSize: 14, lineHeight: 20 }}>
+                    {n}
+                  </Txt>
+                </Chip>
+              );
+            })}
+          </View>
+        </Section>
+
         <Section title="Gender">
           <Segmented options={Genders} value={draft.gender} onChange={(gender) => setDraft({ ...draft, gender })} />
         </Section>
@@ -129,11 +158,24 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Chip({ on, onPress, style, children }: { on: boolean; onPress: () => void; style?: StyleProp<ViewStyle>; children: ReactNode }) {
+function Chip({
+  on,
+  onPress,
+  accessibilityLabel,
+  style,
+  children,
+}: {
+  on: boolean;
+  onPress: () => void;
+  accessibilityLabel?: string;
+  style?: StyleProp<ViewStyle>;
+  children: ReactNode;
+}) {
   const p = usePalette();
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ selected: on }}
       onPress={onPress}
       style={[

@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { speak } from '@/components/speak-button';
 import { Txt } from '@/components/text';
 import { PersonCodes, Tenses, type Conjugation, type Tense, type VerbForm } from '@/data/conjugations';
 import type { LanguageCode } from '@/data/languages';
 import { Pronouns } from '@/data/pronouns';
+import { withPronoun } from '@/data/verb-lesson';
+import { useLanguage } from '@/state/language';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke, Themes } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
@@ -12,7 +15,7 @@ import { usePalette } from '@/theme/use-palette';
 /**
  * The verb card's conjugation table: a tense switch over the six forms, endings highlighted.
  * Every verb card has one. Forms missing from `conjugation` (or all of them, without one) show as dashes.
- * Each form is labelled with its pronoun in `language` (see `Pronouns`).
+ * Each form is labelled with its pronoun in `language` (see `Pronouns`), and tapping one says it aloud.
  */
 export function ConjugationPanel({ conjugation, language }: { conjugation?: Conjugation; language: LanguageCode }) {
   const p = usePalette();
@@ -66,13 +69,19 @@ export function ConjugationPanel({ conjugation, language }: { conjugation?: Conj
   );
 }
 
+/** One form in the table. Tapping it says the form with its first pronoun ("Il / Elle" → il), as the lessons write it. */
 function FormCell({ person, form }: { person: string; form?: VerbForm }) {
   const p = usePalette();
+  const { language } = useLanguage();
+  const phrase = form ? withPronoun(person.split(' / ')[0], form.stem + form.ending) : undefined;
   return (
-    <View
-      accessible
+    <Pressable
+      disabled={!phrase}
+      accessibilityRole={phrase ? 'button' : undefined}
       accessibilityLabel={form ? `${person}: ${form.stem}${form.ending}` : `${person}: not available yet`}
-      style={{ flex: 1, paddingHorizontal: 10, paddingTop: 5, paddingBottom: 6, backgroundColor: p.paper, borderRadius: Radius.sm }}>
+      accessibilityHint={phrase ? 'Plays the pronunciation' : undefined}
+      onPress={() => phrase && speak(phrase, language.locale)}
+      style={({ pressed }) => ({ flex: 1, paddingHorizontal: 10, paddingTop: 5, paddingBottom: 6, backgroundColor: pressed ? Themes.light.sunshineSoft : p.paper, borderRadius: Radius.sm })}>
       <Txt color={Themes.light.inkMuted} style={{ fontFamily: Font.body900, fontSize: 11, lineHeight: 14, letterSpacing: 0.44, textTransform: 'uppercase' }}>
         {person}
       </Txt>
@@ -86,6 +95,6 @@ function FormCell({ person, form }: { person: string; form?: VerbForm }) {
           '–'
         )}
       </Txt>
-    </View>
+    </Pressable>
   );
 }

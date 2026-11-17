@@ -5,6 +5,7 @@ import { useAuth } from '@/state/auth';
 import { useLanguage } from '@/state/language';
 import { supabase } from '@/utils/supabase';
 import { addWordToday, fetchWordAddStatus, type WordAddStatus } from '@/utils/word-add';
+import { fetchWordProgress, type WordProgress } from '@/utils/word-progress';
 import { WordColumns, toWord, type LoadedWord, type WordRow } from '@/utils/word-rows';
 
 type UserWordRow = { created_at: string; words: WordRow | null };
@@ -16,6 +17,8 @@ type Ctx = {
   otherLanguageCount: number;
   /** Ids of `words` in the order they were won, for "Newest". */
   collected: string[];
+  /** How well the learner knows each word (`get_word_progress`), keyed by word id. Read it with `progressFor`. */
+  progress: Record<string, WordProgress>;
   /** True until the first fetch for the signed-in learner has finished. */
   loading: boolean;
   error: string | null;
@@ -28,7 +31,10 @@ type Ctx = {
 
 const MyWordsContext = createContext<Ctx | null>(null);
 
-/** The words the signed-in learner owns, read from `user_words` joined to `words`. */
+/**
+ * The words the signed-in learner owns, read from `user_words` joined to `words`, with each one's
+ * strength and stage from `get_word_progress`. Both reload together.
+ */
 export function MyWordsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { language } = useLanguage();
@@ -75,7 +81,16 @@ export function MyWordsProvider({ children }: { children: ReactNode }) {
   // Words without a language show up whichever language is picked.
   const all = current?.words ?? [];
   const words = all.filter((w) => w.language === null || w.language === language.name);
-  const ctx: Ctx = { words, otherLanguageCount: all.length - words.length, collected: words.map((w) => w.id), loading, error, refresh, canAddToday: addStatus && addStatus.userId === userId ? addStatus.available : null, add };
+  const ctx: Ctx = {
+    words,
+    otherLanguageCount: all.length - words.length,
+    collected: words.map((w) => w.id),
+    progress: current?.progress ?? NoProgress,
+    loading,
+    error,
+    refresh,     canAddToday: addStatus && addStatus.userId === userId ? addStatus.available : null,
+    add,
+  };
   return <MyWordsContext value={ctx}>{children}</MyWordsContext>;
 }
 
@@ -85,9 +100,23 @@ export function useMyWords() {
   return ctx;
 }
 
-type Loaded = { userId: string; words: LoadedWord[]; error: string | null };
+const NoProgress: Record<string, WordProgress> = {};
+
+/** `progress` is null when it couldn't be loaded, so the last one stays. */
+type Loaded = { userId: string; words: LoadedWord[]; progress: Record<string, WordProgress> | null; error: string | null };
 
 async function fetchMyWords(userId: string): Promise<Loaded> {
+  const [loaded, progress] = await Promise.all([
+    fetchWords(userId),
+    fetchWordProgress().catch((e: Error) => {
+      console.warn(`Couldn't load word progress: ${e.message}`);
+      return null;
+    }),
+  ]);
+  return { ...loaded, progress };
+}
+
+async function fetchWords(userId: string): Promise<Omit<Loaded, 'progress'>> {
   let result;
   try {
     result = await supabase
@@ -123,7 +152,8 @@ async function loadAddStatus(userId: string) {
   }
 }
 
-/** A failed refresh keeps the words already on screen. */
+/** A failed refresh keeps the words (and progress) already on screen. */
 function keepWordsOnError(prev: Loaded | undefined, next: Loaded): Loaded {
-  return next.error && prev?.userId === next.userId ? { ...next, words: prev.words } : next;
+  if (prev?.userId !== next.userId) return next;
+  return { ...next, words: next.error ? prev.words : next.words, progress: next.progress ?? prev.progress };
 }

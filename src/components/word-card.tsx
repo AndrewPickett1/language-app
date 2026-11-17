@@ -9,7 +9,7 @@ import { SpeakButton } from '@/components/speak-button';
 import { Panel } from '@/components/sticker';
 import { Txt } from '@/components/text';
 import { RarityInfo } from '@/data/rarity';
-import { Words, bareWord, type Word } from '@/data/words';
+import { bareWord, type Word } from '@/data/words';
 import { useLanguage } from '@/state/language';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke, Themes } from '@/theme/tokens';
@@ -20,6 +20,8 @@ type WordCardProps = {
   word: Word;
   /** The round button at the top left: back on the card screen, close in the Lotto reveal. */
   leading: ReactNode;
+  /** At the top right: the card screen's flip-to-stats button. */
+  trailing?: ReactNode;
   /** Fixed art height. Without it the art takes whatever height the card is given. */
   artHeight?: number;
   /** Drawn over the art, inside its window (the rare reveal's shine). */
@@ -32,15 +34,12 @@ type WordCardProps = {
  * Verbs get the verb layout: a conjugation table under the word, with tighter panels to make room.
  * Its forms come from `verb_conjugations`, and any it doesn't have show as dashes.
  */
-export function WordCard({ word, leading, artHeight, artOverlay, style }: WordCardProps) {
+export function WordCard({ word, leading, trailing, artHeight, artOverlay, style }: WordCardProps) {
   const p = usePalette();
   const { language } = useLanguage();
   const [artBox, setArtBox] = useState({ width: 0, height: 0 });
   const dotsId = `dots-${useId().replace(/:/g, '')}`;
   const info = RarityInfo[word.rarity];
-  // Words from Supabase aren't in the local deck, so they show their database id and no total.
-  const deckIndex = Words.indexOf(word);
-  const setNumber = (deckIndex >= 0 ? String(deckIndex + 1) : word.id).padStart(3, '0');
   // The layout follows the word type alone. A verb with no stored conjugation still gets the verb card, with blank forms.
   const verb = word.type === 'Verb';
   const conjugation = useConjugation(word);
@@ -54,11 +53,8 @@ export function WordCard({ word, leading, artHeight, artOverlay, style }: WordCa
           accessibilityLabel={`Word card: ${word.word}, ${info.name}`}
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <RarityBadge rarity={word.rarity} fill={p.paper} />
-          <Txt variant="caption" color={p.onBright} style={{ fontFamily: Font.body900 }}>
-            No. {setNumber}
-            {deckIndex >= 0 && ` / ${String(Words.length).padStart(3, '0')}`}
-          </Txt>
         </View>
+        {trailing}
       </View>
 
       <View

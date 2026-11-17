@@ -25,10 +25,12 @@ type Props = {
   accuracy: number | null;
   /** True once the server has granted a pull for finishing. */
   earnedPull: boolean;
+  /** Set when there's more to show (how the words grew): one Continue leads there, and the pull waits for it. */
+  onContinue?: () => void;
 };
 
 /** One big moment. Stats never count mistakes. A granted pull shows the capsule; otherwise just Continue. */
-export function ModuleDone({ unit, title, lesson, words, bestCombo, accuracy, earnedPull }: Props) {
+export function ModuleDone({ unit, title, lesson, words, bestCombo, accuracy, earnedPull, onContinue }: Props) {
   const p = usePalette();
   const jump = useSharedValue(0);
   const jumpStyle = useAnimatedStyle(() => ({ transform: [{ translateY: jump.get() }] }));
@@ -82,17 +84,31 @@ export function ModuleDone({ unit, title, lesson, words, bestCombo, accuracy, ea
               </View>
             </Panel>
           </Animated.View>
-          <PillButton label="Pull a capsule" fill={p.sunshine} style={{ alignSelf: 'stretch', minHeight: 60 }} onPress={() => router.replace('/lotto')} />
-          <Pressable accessibilityRole="button" onPress={() => goBack('/level-map')} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: Space[4] }}>
-            <Txt variant="body" style={{ fontFamily: Font.body800, textDecorationLine: 'underline' }}>
-              Later
-            </Txt>
-          </Pressable>
+          {onContinue ? (
+            <PillButton label="Continue" fill={p.pink} style={{ alignSelf: 'stretch', minHeight: 60 }} onPress={onContinue} />
+          ) : (
+            <PullOrLater />
+          )}
         </>
       ) : (
-        <PillButton label="Continue" fill={p.pink} style={{ alignSelf: 'stretch', minHeight: 60 }} onPress={() => goBack('/level-map')} />
+        <PillButton label="Continue" fill={p.pink} style={{ alignSelf: 'stretch', minHeight: 60 }} onPress={onContinue ?? (() => goBack('/level-map'))} />
       )}
     </Screen>
+  );
+}
+
+/** The way out once a pull was earned: straight to the Lotto, or back to the map for now. */
+export function PullOrLater() {
+  const p = usePalette();
+  return (
+    <>
+      <PillButton label="Pull a capsule" fill={p.sunshine} style={{ alignSelf: 'stretch', minHeight: 60 }} onPress={() => router.replace('/lotto')} />
+      <Pressable accessibilityRole="button" onPress={() => goBack('/level-map')} style={{ minHeight: 44, alignSelf: 'center', justifyContent: 'center', paddingHorizontal: Space[4] }}>
+        <Txt variant="body" style={{ fontFamily: Font.body800, textDecorationLine: 'underline' }}>
+          Later
+        </Txt>
+      </Pressable>
+    </>
   );
 }
 
