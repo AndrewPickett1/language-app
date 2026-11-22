@@ -37,11 +37,12 @@ import { sendWordResults, type AnswerKind, type WordResult } from '@/utils/word-
 type Loaded = { id: string; lesson: Lesson | null; deck: LessonWord[]; drills: VerbDrill[]; error: string | null };
 
 /**
- * A module whose words are all verbs drills their conjugations, so it needs each verb's stored forms. Verbs
- * without enough of them are left out, and with none left the module runs as an ordinary word lesson.
+ * A module whose words are all verbs drills their conjugations (unless it opts out with `drillConjugations`),
+ * so it needs each verb's stored forms. Verbs without enough of them are left out, and with none left the
+ * module runs as an ordinary word lesson.
  */
 async function fetchDrills(lesson: Lesson, language: LanguageCode): Promise<VerbDrill[]> {
-  if (lesson.type !== 'Exercise' || !isVerbModule(lesson.words)) return [];
+  if (lesson.type !== 'Exercise' || !lesson.drillConjugations || !isVerbModule(lesson.words)) return [];
   const conjugations = await Promise.all(lesson.words.map((w) => fetchConjugation(w).catch(() => undefined)));
   return lesson.words.flatMap((verb, i) => {
     const forms = verbDrill(verb, conjugations[i], Pronouns[language]);

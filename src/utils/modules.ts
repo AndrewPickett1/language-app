@@ -69,6 +69,8 @@ export type Lesson = {
   type: ModuleType;
   /** For a Lesson module, which slide lesson it shows (see `ConceptLessons`). */
   lessonKey: string | null;
+  /** False when an all-verb module teaches its verbs as words instead of drilling their conjugations. */
+  drillConjugations: boolean;
   words: LessonWord[];
 };
 
@@ -79,6 +81,7 @@ type LessonRow = {
   description: string | null;
   module_type: ModuleType | null;
   lesson_key: string | null;
+  drill_conjugations: boolean;
   words: { position: number; word: WordRow | null }[];
 };
 
@@ -90,7 +93,7 @@ export function toLessonWord(row: WordRow): LessonWord {
 export async function fetchLesson(id: string): Promise<Lesson> {
   const { data, error } = await supabase
     .from('modules')
-    .select(`id, unit, title, description, module_type, lesson_key, words:module_words(position, word:word_id(${WordColumns}))`)
+    .select(`id, unit, title, description, module_type, lesson_key, drill_conjugations, words:module_words(position, word:word_id(${WordColumns}))`)
     .eq('id', Number(id))
     .maybeSingle()
     .overrideTypes<LessonRow, { merge: false }>();
@@ -104,6 +107,7 @@ export async function fetchLesson(id: string): Promise<Lesson> {
     description: data.description,
     type: data.module_type ?? 'Exercise',
     lessonKey: data.lesson_key,
+    drillConjugations: data.drill_conjugations,
     words,
   };
 }
