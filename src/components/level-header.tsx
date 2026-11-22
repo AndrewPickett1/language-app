@@ -19,7 +19,7 @@ type LevelHeaderProps = {
   trailing?: ReactNode;
 };
 
-/** The white bar over the level map and the Levels list: back, a pink title pill, and an optional button. */
+/** The white bar over the level map: back, a pink title pill, and an optional button. */
 export function LevelHeader({ title, backLabel, fallback, trailing }: LevelHeaderProps) {
   const p = usePalette();
   const insets = useSafeAreaInsets();

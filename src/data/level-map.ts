@@ -106,11 +106,6 @@ export function unitStars(unit: MapUnit) {
   return { stars: lessons.reduce((sum, m) => sum + (m.stars ?? 0), 0), max: lessons.length * 3 };
 }
 
-/** Units the learner can open: finished ones, the one with their next module, and always the first. */
-export function openUnits(units: MapUnit[]): MapUnit[] {
-  return units.filter((u, i) => i === 0 || u.completed || u.modules.some((m) => m.status === 'done' || m.status === 'current'));
-}
-
 /** The unit holding the learner's next module, for the home tile. Undefined when there are no units. */
 export function currentUnit(units: MapUnit[]): MapUnit | undefined {
   return units.find((u) => u.modules.some((m) => m.status === 'current')) ?? units[0];

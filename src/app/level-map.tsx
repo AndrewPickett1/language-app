@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
@@ -6,27 +6,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { LottoMascot } from '@/components/art/lotto-mascot';
-import { CheckIcon, ListIcon, LockIcon, StarIcon } from '@/components/icons';
+import { CheckIcon, LockIcon, StarIcon } from '@/components/icons';
 import { LevelHeader } from '@/components/level-header';
-import { RoundButton, Sticker } from '@/components/sticker';
+import { Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
-import { currentUnit, type MapModule, type MapUnit, type ModuleStatus } from '@/data/level-map';
+import { currentUnit, unitProgress, unitStars, type MapModule, type MapUnit, type ModuleStatus } from '@/data/level-map';
 import { useLanguage } from '@/state/language';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
 import { useLevelMap } from '@/utils/modules';
 
-/** Module points are laid out on a canvas this wide, then stretched to fill the screen. */
+/** Module points are laid out on a canvas this wide, then stretched to fill the screen's width. */
 const Canvas = 390;
 
-type Size = { width: number; height: number };
-
-/** Spreads a unit's module points across the space its map actually got. */
-function fitUnit(unit: MapUnit, size: Size): MapUnit {
-  const sx = size.width / Canvas;
-  const sy = size.height / unit.height;
-  return { ...unit, height: size.height, modules: unit.modules.map((m) => ({ ...m, x: m.x * sx, y: m.y * sy })) };
+/** Spreads a unit's module points across the screen's width. */
+function fitUnit(unit: MapUnit, width: number): MapUnit {
+  const sx = width / Canvas;
+  return { ...unit, modules: unit.modules.map((m) => ({ ...m, x: m.x * sx })) };
 }
 
 const StatusText: Record<ModuleStatus, string> = {
@@ -37,76 +34,150 @@ const StatusText: Record<ModuleStatus, string> = {
 };
 
 /**
- * The Learn screen: one level's modules on a winding path, first at the bottom. It opens on the level holding
- * the learner's next module, or the one `level` names (from the Levels list).
+ * The Learn screen: every level's modules on one winding road, Level 1 at the bottom, scrolled so the
+ * learner's next module sits mid-screen. The header names the level in view.
  */
 export default function LevelMapScreen() {
   const p = usePalette();
-  const { level } = useLocalSearchParams<{ level?: string }>();
   const { language } = useLanguage();
   const { units, error } = useLevelMap();
-  const unit = units && (units.find((u) => String(u.number) === level) ?? currentUnit(units));
+  const [visible, setVisible] = useState<number>();
+  const shown = visible ?? (units && currentUnit(units)?.number);
 
   return (
     <View style={{ flex: 1, backgroundColor: p.surface }}>
-      <LevelHeader
-        title={unit ? `Level ${unit.number}` : 'Learn'}
-        backLabel="Back to home"
-        fallback="/"
-        trailing={
-          <RoundButton accessibilityLabel="All levels" size={44} fill={p.paper} disabled={!unit} onPress={() => router.push('/levels')}>
-            <ListIcon color={p.ink} />
-          </RoundButton>
-        }
-      />
+      <LevelHeader title={shown ? `Level ${shown}` : 'Learn'} backLabel="Back to home" fallback="/" />
       {!units ? (
         <ActivityIndicator color={p.ink} style={{ padding: Space[6] }} />
-      ) : !unit ? (
+      ) : units.length === 0 ? (
         <Empty
           title={error ? "Couldn't load the map" : 'Coming soon'}
           body={error ?? `There are no ${language.name} lessons yet. Check back soon!`}
         />
       ) : (
-        // Keyed so picking another level starts its map fresh, scrolled to its own next module.
-        <LevelRoad key={unit.number} unit={unit} />
+        // Keyed so a new language starts its map fresh, scrolled to its own next module.
+        <LevelRoad key={language.name} units={units} onVisible={setVisible} />
       )}
     </View>
   );
 }
 
-/** A level's road, scrolled so the next module sits mid-screen, or to the start when there isn't one. */
-function LevelRoad({ unit }: { unit: MapUnit }) {
+type Span = { y: number; height: number };
+
+/** Every level's road stacked, newest on top, scrolled once so the next module sits mid-screen. */
+function LevelRoad({ units, onVisible }: { units: MapUnit[]; onVisible: (level: number) => void }) {
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollViewInstance>(null);
   const scrolled = useRef(false);
-  const [viewport, setViewport] = useState(0);
-  const [size, setSize] = useState<Size>();
+  const [viewport, setViewport] = useState<{ width: number; height: number }>();
+  // Where each level sits in the scroll, by level number.
+  const [spans, setSpans] = useState<Record<number, Span>>({});
+  const stacked = [...units].reverse();
+  const currentLevel = units.find((u) => u.modules.some((m) => m.status === 'current'));
   // The next module wears the dashed ring.
-  const selected = unit.modules.find((m) => m.status === 'current')?.id ?? null;
-  const currentY = size ? (fitUnit(unit, size).modules.find((m) => m.status === 'current')?.y ?? null) : undefined;
+  const current = currentLevel?.modules.find((m) => m.status === 'current');
+  const measured = units.every((u) => spans[u.number]);
 
   useEffect(() => {
-    if (scrolled.current || !viewport || currentY === undefined) return;
+    if (scrolled.current || !viewport || !measured) return;
     scrolled.current = true;
-    if (currentY === null) scroll.current?.scrollToEnd({ animated: false });
-    else scroll.current?.scrollTo({ y: Math.max(0, currentY - viewport / 2), animated: false });
-  }, [viewport, currentY]);
+    // With every module done, it opens on the end of the road, at the top.
+    if (!currentLevel || !current) return;
+    const y = spans[currentLevel.number].y + current.y;
+    scroll.current?.scrollTo({ y: Math.max(0, y - viewport.height / 2), animated: false });
+  }, [viewport, measured, spans, currentLevel, current]);
+
+  /** Names the level crossing the middle of the screen in the header. */
+  function track(y: number) {
+    if (!viewport) return;
+    const mid = y + viewport.height / 2;
+    const unit = stacked.find((u) => spans[u.number] && mid < spans[u.number].y + spans[u.number].height) ?? stacked.at(-1);
+    if (unit) onVisible(unit.number);
+  }
 
   return (
     <ScrollView
       ref={scroll}
       style={{ flex: 1 }}
-      contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom }}
+      contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', paddingBottom: insets.bottom + Space[4] }}
       showsVerticalScrollIndicator={false}
-      onLayout={(e) => setViewport(e.nativeEvent.layout.height)}>
-      <UnitMap
-        unit={unit}
-        size={size}
-        onSize={setSize}
-        selected={selected}
-        onPick={(id) => router.push({ pathname: '/lesson/[id]', params: { id } })}
-      />
+      scrollEventThrottle={32}
+      onScroll={(e) => track(e.nativeEvent.contentOffset.y)}
+      onLayout={(e) => setViewport({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}>
+      {viewport &&
+        stacked.map((unit) => (
+          <View
+            key={unit.number}
+            onLayout={(e) => {
+              const { y, height } = e.nativeEvent.layout;
+              setSpans((prev) =>
+                prev[unit.number]?.y === y && prev[unit.number]?.height === height ? prev : { ...prev, [unit.number]: { y, height } }
+              );
+            }}>
+            <View style={{ height: unit.height }}>
+              <UnitRoad
+                unit={fitUnit(unit, viewport.width)}
+                width={viewport.width}
+                selected={current?.id ?? null}
+                onPick={(id) => router.push({ pathname: '/lesson/[id]', params: { id } })}
+              />
+            </View>
+            <LevelBanner unit={unit} />
+          </View>
+        ))}
     </ScrollView>
+  );
+}
+
+/** Where a level's road starts: its number and title, with modules done and stars earned. */
+function LevelBanner({ unit }: { unit: MapUnit }) {
+  const p = usePalette();
+  const { done, total } = unitProgress(unit);
+  const { stars, max } = unitStars(unit);
+  const started = unit.completed || unit.modules.some((m) => m.status === 'done' || m.status === 'current');
+  const status = unit.completed ? 'complete' : started ? 'in progress' : 'locked';
+  const fill = unit.completed ? p.leaf : started ? p.pink : p.locked;
+
+  return (
+    <View
+      accessible
+      accessibilityRole="header"
+      accessibilityLabel={`Level ${unit.number}, ${unit.title}, ${status}, ${done} of ${total} modules, ${stars} of ${max} stars`}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: Space[2], paddingHorizontal: Space[4], paddingVertical: Space[3] }}>
+      <View style={{ flex: 1, height: Stroke[2], backgroundColor: p.line, opacity: 0.25 }} />
+      <View
+        style={{
+          maxWidth: '78%',
+          alignItems: 'center',
+          paddingHorizontal: Space[4],
+          paddingVertical: Space[2],
+          backgroundColor: fill,
+          borderColor: p.line,
+          borderWidth: Stroke[2],
+          borderRadius: Radius.md,
+        }}>
+        <Txt
+          numberOfLines={1}
+          color={p.onBright}
+          style={{ fontFamily: Font.display600, fontSize: 18, lineHeight: 22, letterSpacing: 0.6, textTransform: 'uppercase' }}>
+          Level {unit.number}
+        </Txt>
+        <Txt numberOfLines={1} color={p.onBright} style={{ fontFamily: Font.body700, fontSize: 14, lineHeight: 18 }}>
+          {unit.title}
+        </Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+          {unit.completed ? <CheckIcon color={p.onBright} size={14} /> : !started && <LockIcon color={p.line} fill={p.paper} size={14} />}
+          <Txt color={p.onBright} style={{ fontFamily: Font.body800, fontSize: 12, lineHeight: 16 }}>
+            {done}/{total}
+          </Txt>
+          <StarIcon color={p.line} fill={p.sunshine} size={14} />
+          <Txt color={p.onBright} style={{ fontFamily: Font.body800, fontSize: 12, lineHeight: 16 }}>
+            {stars}/{max}
+          </Txt>
+        </View>
+      </View>
+      <View style={{ flex: 1, height: Stroke[2], backgroundColor: p.line, opacity: 0.25 }} />
+    </View>
   );
 }
 
@@ -120,29 +191,6 @@ function roadThrough(points: MapModule[]) {
       return `C${prev.x} ${mid} ${m.x} ${mid} ${m.x} ${m.y}`;
     })
     .join(' ');
-}
-
-type UnitMapProps = {
-  unit: MapUnit;
-  /** The space the map got on screen, once measured. */
-  size: Size | undefined;
-  onSize: (size: Size) => void;
-  selected: string | null;
-  onPick: (id: string) => void;
-};
-
-/** A unit's road, at least its natural height and stretched to fill whatever room is left. */
-function UnitMap({ unit, size, onSize, selected, onPick }: UnitMapProps) {
-  return (
-    <View
-      style={{ flexGrow: 1, minHeight: unit.height }}
-      onLayout={(e) => {
-        const { width, height } = e.nativeEvent.layout;
-        if (width !== size?.width || height !== size?.height) onSize({ width, height });
-      }}>
-      {size && <UnitRoad unit={fitUnit(unit, size)} width={size.width} selected={selected} onPick={onPick} />}
-    </View>
-  );
 }
 
 type UnitRoadProps = { unit: MapUnit; width: number; selected: string | null; onPick: (id: string) => void };
