@@ -1,4 +1,6 @@
+import type { Language } from '@/data/languages';
 import type { Word } from '@/data/words';
+import { withArticle } from '@/utils/gender-nouns';
 
 /** A word with its raw `word_type` from the database (Noun, Phrase, Article…), which `Word.type` flattens. */
 export type LessonWord = Word & {
@@ -66,17 +68,21 @@ export function elides(word: Word) {
   return ElidesBefore.test(word.word) && !AspiratedH.test(word.word);
 }
 
-/** The article for a gendered noun: le/la (l' before a vowel), or un/une. */
+/** The French article for a gendered noun: le/la (l' before a vowel), or un/une. */
 export function articleFor(word: Word, indefinite = false) {
   if (indefinite) return word.gender === 'F' ? 'une' : 'un';
   if (elides(word)) return "l'";
   return word.gender === 'F' ? 'la' : 'le';
 }
 
-/** How a word reads in a lesson: nouns with their article ("la maison", "l'ami"), everything else lower-case. */
-export function display(word: LessonWord, indefinite = false) {
+/**
+ * How a word reads in `language`: nouns with their article ("la maison", "l'ami", "el perro"), everything
+ * else lower-case (German nouns keep their capital). Only French has un/une, for `indefinite`.
+ */
+export function display(word: LessonWord, language: Language, indefinite = false) {
+  if (!isGendered(word)) return language.code === 'DE' && word.kind === 'Noun' ? word.word : lowerFirst(word.word);
+  if (language.code !== 'FR') return withArticle({ ...word, gender: word.gender ?? 'M' }, language);
   const bare = lowerFirst(word.word);
-  if (!isGendered(word)) return bare;
   const article = articleFor(word, indefinite);
   return article.endsWith("'") ? `${article}${bare}` : `${article} ${bare}`;
 }
@@ -106,7 +112,7 @@ export function distractors(word: LessonWord, lesson: LessonWord[], deck: Lesson
  * then pick-the-word, listening, gender (when there are nouns, or the module teaches articles) and a
  * match-pairs finale. `deck` is the language's whole word list, for wrong answers and gender practice.
  */
-export function buildLesson(words: LessonWord[], deck: LessonWord[]): Step[] {
+export function buildLesson(words: LessonWord[], deck: LessonWord[], language: Language): Step[] {
   const steps: Step[] = [];
   let n = 0;
   const key = (kind: string) => `${kind}-${n++}`;
@@ -114,7 +120,7 @@ export function buildLesson(words: LessonWord[], deck: LessonWord[]): Step[] {
     key: key(kind),
     kind,
     word,
-    options: shuffle([word, ...distractors(word, words, deck, kind === 'meaning' ? gloss : (w) => display(w))]),
+    options: shuffle([word, ...distractors(word, words, deck, kind === 'meaning' ? gloss : (w) => display(w, language))]),
   });
 
   for (let i = 0; i < words.length; i += GroupSize) {

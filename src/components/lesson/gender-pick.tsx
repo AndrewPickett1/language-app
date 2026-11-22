@@ -15,6 +15,7 @@ import { usePalette } from '@/theme/use-palette';
 
 type Props = {
   noun: LessonWord;
+  /** un or une instead of le or la. French only. */
   indefinite: boolean;
   /** Open the rule card before the first question (the articles module). */
   ruleFirst: boolean;
@@ -25,7 +26,10 @@ type Props = {
 const SwapMs = 650;
 const SheetMs = 1150;
 
-/** Pick le or la (or un or une) for a noun. The article drops into the dashed slot; a wrong one swaps out. */
+/**
+ * Pick le or la (or un or une) for a noun, or the current language's own articles (el or la). The article
+ * drops into the dashed slot; a wrong one swaps out.
+ */
 export function GenderPick({ noun, indefinite, ruleFirst, onAnswer }: Props) {
   const p = usePalette();
   const { language } = useLanguage();
@@ -33,9 +37,9 @@ export function GenderPick({ noun, indefinite, ruleFirst, onAnswer }: Props) {
   const [swapped, setSwapped] = useState(false);
   const [rule, setRule] = useState(ruleFirst);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const masc = indefinite ? 'un' : 'le';
-  const fem = indefinite ? 'une' : 'la';
-  const bare = lowerFirst(noun.word);
+  const masc = indefinite ? 'un' : language.articles.M;
+  const fem = indefinite ? 'une' : language.articles.F;
+  const bare = language.code === 'DE' ? noun.word : lowerFirst(noun.word);
   const answer = noun.gender === 'F' ? 'F' : 'M';
 
   useEffect(() => {
@@ -47,7 +51,7 @@ export function GenderPick({ noun, indefinite, ruleFirst, onAnswer }: Props) {
     if (picked) return;
     setPicked(g);
     const right = g === answer;
-    const said = display(noun, indefinite);
+    const said = display(noun, language, indefinite);
     const genderName = answer === 'F' ? 'feminine' : 'masculine';
     const feedback: Feedback = right
       ? { right, title: 'Snap!', text: `${said} = ${indefinite ? 'a' : 'the'} ${gloss(noun).toLowerCase()}` }
@@ -155,18 +159,28 @@ function ArticleButton({ gender, text, picked, answer, onPress }: { gender: 'M' 
   );
 }
 
+/** French examples for the rule card. Other languages show just their articles. */
+const FrenchRule = {
+  M: { articles: 'le · un', examples: 'le jour\nle temps' },
+  F: { articles: 'la · une', examples: 'la femme\nla maison' },
+};
+
 /** "Every noun has a gender": le · un on the tangerine pill, la · une on the grape circle. */
 function RuleCard({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const p = usePalette();
-  const column = (feminine: boolean) => (
+  const { language } = useLanguage();
+  const french = language.code === 'FR';
+  const column = (feminine: boolean, gender = feminine ? ('F' as const) : ('M' as const)) => (
     <View style={{ flex: 1, alignItems: 'center', gap: Space[2], paddingVertical: 14, paddingHorizontal: Space[2], backgroundColor: p.paper, borderColor: p.line, borderWidth: Stroke[2], borderRadius: 20 }}>
-      <GenderChip feminine={feminine} text={feminine ? 'la · une' : 'le · un'} size={feminine ? 76 : 52} />
+      <GenderChip feminine={feminine} text={french ? FrenchRule[gender].articles : language.articles[gender]} size={feminine ? 76 : 52} />
       <Txt variant="caption" color={p.onBright}>
         {feminine ? 'Feminine' : 'Masculine'}
       </Txt>
-      <Txt color={p.onBright} style={{ fontFamily: Font.body800, fontSize: 16, lineHeight: 22, textAlign: 'center' }}>
-        {feminine ? 'la femme\nla maison' : 'le jour\nle temps'}
-      </Txt>
+      {french && (
+        <Txt color={p.onBright} style={{ fontFamily: Font.body800, fontSize: 16, lineHeight: 22, textAlign: 'center' }}>
+          {FrenchRule[gender].examples}
+        </Txt>
+      )}
     </View>
   );
   return (

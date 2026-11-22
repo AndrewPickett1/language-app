@@ -90,13 +90,14 @@ type Stats = { combo: number; best: number; right: number; total: number };
 
 function LessonSession({ lesson, deck, drills }: { lesson: Lesson; deck: LessonWord[]; drills: VerbDrill[] }) {
   const p = usePalette();
+  const { language } = useLanguage();
   const streak = useStreak();
   const { finish, earnedPull, growth } = useFinishModule(lesson.id);
   const myWords = useMyWords();
   // After Module done: how the words grew, with a mastery moment for each newly mastered word.
   const [showGrowth, setShowGrowth] = useState(false);
   const [moments, setMoments] = useState<{ queue: string[]; at: number; fromRow?: boolean } | null>(null);
-  const [steps, setSteps] = useState<Step[]>(() => (drills.length > 0 ? buildVerbLesson(drills) : buildLesson(lesson.words, deck)));
+  const [steps, setSteps] = useState<Step[]>(() => (drills.length > 0 ? buildVerbLesson(drills) : buildLesson(lesson.words, deck, language)));
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [stats, setStats] = useState<Stats>({ combo: 0, best: 0, right: 0, total: 0 });

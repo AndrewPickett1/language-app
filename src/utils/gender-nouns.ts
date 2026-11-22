@@ -1,9 +1,13 @@
 import type { Language } from '@/data/languages';
+import type { Word } from '@/data/words';
 import { supabase } from '@/utils/supabase';
 import { WordColumns, toWord, type LoadedWord, type WordRow } from '@/utils/word-rows';
 
 /** A noun with a known gender, which `toWord` leaves undefined for neuter or missing ones. */
 export type GenderNoun = LoadedWord & { gender: 'M' | 'F' };
+
+/** Any word with a known gender, which is all the article helpers below need. */
+type Gendered = Word & { gender: 'M' | 'F' };
 
 type Row = { words: WordRow | null };
 
@@ -34,7 +38,7 @@ export async function fetchGenderNouns(userId: string, language: Language): Prom
 }
 
 /** Stored nouns are capitalised; German keeps the capital, the others read lower-case. */
-export function bareNoun(noun: GenderNoun, language: Language) {
+export function bareNoun(noun: Gendered, language: Language) {
   return language.code === 'DE' ? noun.word : noun.word.charAt(0).toLowerCase() + noun.word.slice(1);
 }
 
@@ -43,7 +47,7 @@ const FrenchSilentH = /^h(?!a(che|ie|ll|mac|mburger|ndicap|ricot|sard|ut)|éros|
 const ItalianLo = /^(s[^aeiou]|z|gn|ps|x|y)/i;
 
 /** The noun with the article it really takes: "la mano", "l'ami", "lo zaino". */
-export function withArticle(noun: GenderNoun, language: Language) {
+export function withArticle(noun: Gendered, language: Language) {
   const bare = bareNoun(noun, language);
   let article = language.articles[noun.gender];
   if (language.code === 'FR' && (Vowel.test(bare) || FrenchSilentH.test(bare))) article = "l'";

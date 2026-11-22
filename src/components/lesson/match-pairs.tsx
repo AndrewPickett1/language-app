@@ -87,7 +87,7 @@ export function MatchPairs({ words, onTry, onDone }: Props) {
     Haptics.selectionAsync().catch(() => {});
     if (side === 'left') {
       const w = words.find((x) => x.id === id);
-      if (w) speak(display(w), language.locale);
+      if (w) speak(display(w, language), language.locale);
       if (selRight !== null) tryPair(id, selRight);
       else setSelLeft(selLeft === id ? null : id);
     } else if (selLeft !== null) tryPair(selLeft, id);
@@ -113,7 +113,7 @@ export function MatchPairs({ words, onTry, onDone }: Props) {
             numberOfLines={1}
             adjustsFontSizeToFit
             style={side === 'left' ? { fontFamily: Font.display600, fontSize: 20, lineHeight: 24 } : { fontFamily: Font.body900, fontSize: 17, lineHeight: 22 }}>
-            {side === 'left' ? display(w) : gloss(w)}
+            {side === 'left' ? display(w, language) : gloss(w)}
           </Txt>
         </Sticker>
       </View>

@@ -2,8 +2,8 @@ import { shuffle } from '@/data/lesson';
 import type { Word } from '@/data/words';
 import { progressFor, type WordProgress } from '@/utils/word-progress';
 
-/** The Study hub exercises that quiz the learner's own words. */
-export type StudyExercise = 'flashcards' | 'matching' | 'gender';
+/** The Study hub exercises that quiz the learner's own words. `review` is the Daily Review's whole round (see `daily-review.ts`). */
+export type StudyExercise = 'flashcards' | 'matching' | 'gender' | 'review';
 
 type Rule = {
   /** How many words a session asks. */
@@ -20,6 +20,7 @@ const Rules: Record<StudyExercise, Rule> = {
   flashcards: { count: 10, repeatToFill: true },
   matching: { count: 5, min: 2, distinctMeanings: true },
   gender: { count: 10 },
+  review: { count: 10, min: 4 },
 };
 
 /** How many words a session of `exercise` asks at most. */

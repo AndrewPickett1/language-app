@@ -10,6 +10,7 @@ import { Panel, PillButton } from '@/components/sticker';
 import { Txt } from '@/components/text';
 import { display, type LessonWord } from '@/data/lesson';
 import { RarityInfo } from '@/data/rarity';
+import { useLanguage } from '@/state/language';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
@@ -115,6 +116,7 @@ export function PullOrLater() {
 /** The stats row and the strip of words practised, for a word module. */
 function WordStats({ stats, words }: { stats: { value: string; label: string }[]; words: LessonWord[] }) {
   const p = usePalette();
+  const { language } = useLanguage();
   return (
     <>
       <View style={{ alignSelf: 'stretch', flexDirection: 'row', gap: 10 }}>
@@ -138,7 +140,7 @@ function WordStats({ stats, words }: { stats: { value: string; label: string }[]
             </View>
             <View style={{ marginTop: 4, paddingVertical: 4, paddingHorizontal: 2, backgroundColor: p.paper, borderColor: p.line, borderWidth: Stroke[1], borderRadius: 8 }}>
               <Txt color={p.onBright} numberOfLines={1} adjustsFontSizeToFit style={{ fontFamily: Font.display600, fontSize: 13, lineHeight: 16, textAlign: 'center' }}>
-                {display(w)}
+                {display(w, language)}
               </Txt>
             </View>
           </View>

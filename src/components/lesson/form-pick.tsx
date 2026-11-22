@@ -27,7 +27,7 @@ export function FormPick({ word, pronoun, form, options, retry, onAnswer }: Prop
   const { language } = useLanguage();
   const [sel, setSel] = useState<string | null>(null);
   const [answered, setAnswered] = useState(false);
-  const said = display(word);
+  const said = display(word, language);
   // An elided pronoun (j') runs straight into the blank.
   const joined = pronoun.endsWith("'");
 

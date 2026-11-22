@@ -33,8 +33,8 @@ export function ChoiceQuiz({ kind, word, options, retry, onAnswer }: Props) {
   const [sel, setSel] = useState<string | null>(null);
   const [answered, setAnswered] = useState(false);
   const french = kind !== 'meaning';
-  const label = (w: LessonWord) => (french ? display(w) : gloss(w));
-  const said = display(word);
+  const label = (w: LessonWord) => (french ? display(w, language) : gloss(w));
+  const said = display(word, language);
 
   const check = () => {
     if (sel === null || answered) return;
@@ -71,7 +71,7 @@ export function ChoiceQuiz({ kind, word, options, retry, onAnswer }: Props) {
       onPress={() => {
         setSel(w.id);
         // Tapping a French tile says it, so you can hear the options before checking.
-        if (kind === 'pick') speak(display(w), language.locale);
+        if (kind === 'pick') speak(display(w, language), language.locale);
       }}
     />
   ));

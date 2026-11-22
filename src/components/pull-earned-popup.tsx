@@ -25,11 +25,15 @@ import { Bounce, Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
 import type { BonusSource } from '@/utils/lotto';
 
-/** The line the pop-up shows for each exercise that earns a bonus pull. */
-export const BonusPullMessages: Record<BonusSource, string> = {
+/** Everything that earns a bonus pull: the exercises (`claim_exercise_pull`) and the day's first Daily Review. */
+export type PullSource = BonusSource | 'review';
+
+/** The line the pop-up shows for each thing that earns a bonus pull. */
+export const BonusPullMessages: Record<PullSource, string> = {
   study: 'You finished a study session, so a fresh capsule just rolled in.',
   match: 'You cleared a matching game, so a fresh capsule just rolled in.',
   lesson: 'You finished a lesson, so a fresh capsule just rolled in.',
+  review: "You finished today's review, so a fresh capsule just rolled in.",
 };
 
 /** When the new capsule drops into its slot. */
@@ -38,7 +42,7 @@ const ArriveMs = 750;
 const OpenDelayMs = 300;
 
 type Props = {
-  source: BonusSource;
+  source: PullSource;
   /** Pulls ready now, including the one just earned. */
   pulls: number;
   maxPulls: number;

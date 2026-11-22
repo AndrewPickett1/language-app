@@ -553,3 +553,12 @@ export function FlipIcon({ color, size = 16 }: IconProps) {
     </Svg>
   );
 }
+
+/** A circular arrow: go round again. */
+export function RefreshIcon({ color, size = 16 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v5h-5" fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}

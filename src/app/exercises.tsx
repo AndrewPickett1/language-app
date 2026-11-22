@@ -3,15 +3,15 @@ import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { LottoMascot } from '@/components/art/lotto-mascot';
-import { ConjugateIcon, ExploreIcon, FlashcardsIcon, MatchingIcon, PlayIcon, SpellingIcon } from '@/components/icons';
+import { CheckIcon, ConjugateIcon, ExploreIcon, FlashcardsIcon, MatchingIcon, PlayIcon, RefreshIcon, SpellingIcon } from '@/components/icons';
 import { Screen, ScreenHeader } from '@/components/screen';
 import { Panel, PillButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
-import { useGame } from '@/state/game';
 import { useLanguage } from '@/state/language';
 import { Font } from '@/theme/fonts';
 import { Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
+import { useDailyReviewDone } from '@/utils/daily-review';
 
 type Exercise = {
   title: string;
@@ -23,10 +23,9 @@ type Exercise = {
   isNew?: boolean;
 };
 
-/** The Study hub: a quick mixed review, or pick one exercise to play. */
+/** The Study hub: today's Daily Review, or pick one exercise to play. */
 export default function ExercisesScreen() {
   const p = usePalette();
-  const { reviewCount } = useGame();
   const { language } = useLanguage();
   const { M: masc, F: fem } = language.articles;
 
@@ -44,29 +43,7 @@ export default function ExercisesScreen() {
     <Screen style={{ gap: 14 }}>
       <ScreenHeader title="Study" backLabel="Back to home" />
 
-      <Panel fill={p.leaf} style={{ flexDirection: 'row', alignItems: 'center', gap: Space[3], padding: 14, paddingLeft: Space[4] }}>
-        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-            <Txt color={p.onBright} style={{ fontFamily: Font.display700, fontSize: 44, lineHeight: 46 }}>
-              {reviewCount}
-            </Txt>
-            <Txt color={p.onBright} style={{ flexShrink: 1, fontFamily: Font.display600, fontSize: 20, lineHeight: 24 }}>
-              {reviewCount === 1 ? 'word' : 'words'} to review
-            </Txt>
-          </View>
-          <Txt variant="label" color={p.onBright}>
-            A mix of exercises, about 5 minutes
-          </Txt>
-          <PillButton
-            label="Quick review"
-            fill={p.sunshine}
-            icon={<PlayIcon color={p.onBright} />}
-            onPress={() => router.push('/study')}
-            style={{ alignSelf: 'flex-start', minHeight: 46, marginTop: Space[2] }}
-          />
-        </View>
-        <LottoMascot line={p.line} width={96} pose="think" />
-      </Panel>
+      <DailyReviewCard />
 
       <Txt variant="caption" color={p.inkMuted} style={{ paddingHorizontal: Space[1], fontFamily: Font.body900 }}>
         Choose an exercise
@@ -82,6 +59,78 @@ export default function ExercisesScreen() {
         ))}
       </View>
     </Screen>
+  );
+}
+
+/**
+ * Today's Daily Review. Until the day's first round is done it's leaf green with Start review; after, it's
+ * marked done today and offers more practice, which earns nothing more.
+ */
+function DailyReviewCard() {
+  const p = usePalette();
+  const done = useDailyReviewDone() === true;
+  return (
+    <Panel
+      fill={done ? p.leafSoft : p.leaf}
+      radius={28}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: Space[3], paddingVertical: Space[4], paddingLeft: 18, paddingRight: 14 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: Space[1] }}>
+        {done && (
+          <View
+            style={{
+              alignSelf: 'flex-start',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              paddingVertical: 2,
+              paddingLeft: 6,
+              paddingRight: 10,
+              backgroundColor: p.white,
+              borderColor: p.line,
+              borderWidth: Stroke[1],
+              borderRadius: Radius.pill,
+            }}>
+            <CheckIcon color={p.onBright} size={12} />
+            <Txt color={p.onBright} style={{ fontFamily: Font.body900, fontSize: 11, lineHeight: 14, letterSpacing: 0.66 }}>
+              DONE TODAY
+            </Txt>
+          </View>
+        )}
+        <Txt color={p.onBright} accessibilityRole="header" style={{ fontFamily: Font.display700, fontSize: 32, lineHeight: 36 }}>
+          Daily Review
+        </Txt>
+        <PillButton
+          label={done ? 'Practice more' : 'Start review'}
+          fill={done ? p.white : p.sunshine}
+          icon={done ? <RefreshIcon color={p.onBright} /> : <PlayIcon color={p.onBright} />}
+          onPress={() => router.push('/review')}
+          style={{ alignSelf: 'flex-start', minHeight: 46, marginTop: 10 }}
+        />
+      </View>
+      {done ? (
+        <View style={{ width: 104 }}>
+          <LottoMascot line={p.line} width={104} pose="cheer" />
+          <View
+            style={{
+              position: 'absolute',
+              right: -4,
+              bottom: 2,
+              width: 36,
+              height: 36,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: p.white,
+              borderColor: p.line,
+              borderWidth: Stroke[2],
+              borderRadius: Radius.pill,
+            }}>
+            <CheckIcon color={p.onBright} size={18} />
+          </View>
+        </View>
+      ) : (
+        <LottoMascot line={p.line} width={96} pose="think" />
+      )}
+    </Panel>
   );
 }
 

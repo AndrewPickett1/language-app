@@ -16,6 +16,7 @@ import {
   type SpendResult,
 } from '@/utils/lotto';
 import { askForLottoNotifications, syncLottoNotification } from '@/utils/lotto-notification';
+import { completeDailyReview, type DailyReviewRow } from '@/utils/daily-review';
 
 type LottoState = {
   /** Whose pulls these are, so a different learner never sees the last one's. */
@@ -43,6 +44,8 @@ type Lotto = Omit<LottoState, 'owner'> & {
   spend: (language: string) => Promise<SpendResult>;
   /** Claims the bonus pull a finished exercise earns. The server decides whether it's granted. */
   claimBonus: (source: BonusSource) => Promise<BonusPullRow>;
+  /** Records a finished Daily Review round. The server grants a pull for the day's first round only. */
+  completeReview: () => Promise<DailyReviewRow>;
 };
 
 const LottoContext = createContext<Lotto | null>(null);
@@ -142,6 +145,22 @@ export function LottoProvider({ children }: { children: ReactNode }) {
     [userId, refreshStreak]
   );
 
+  const completeReview = useCallback(async () => {
+    if (!userId) throw new Error('Sign in to finish a review.');
+    try {
+      const row = await completeDailyReview();
+      // A later round leaves the pulls alone, so it has no lotto state to apply.
+      if (row.current_lotto_pulls !== null && row.max_lotto_pulls !== null) {
+        const state = { ...row, current_lotto_pulls: row.current_lotto_pulls, max_lotto_pulls: row.max_lotto_pulls };
+        setState((s) => fromServer(s.owner === userId ? s : Empty, userId, state));
+      }
+      return row;
+    } finally {
+      // Every round counts toward today's streak. Reloaded before answering, like claimBonus.
+      await refreshStreak('review');
+    }
+  }, [userId, refreshStreak]);
+
   // Load on sign-in, and again whenever the app comes back to the foreground.
   useEffect(() => {
     if (!userId) return;
@@ -173,6 +192,7 @@ export function LottoProvider({ children }: { children: ReactNode }) {
     refresh,
     spend,
     claimBonus,
+    completeReview,
   };
   return <LottoContext value={lotto}>{children}</LottoContext>;
 }
