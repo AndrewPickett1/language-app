@@ -1,5 +1,6 @@
 import type { Slide } from '@/components/lesson/concept-lesson';
 import { GendersLesson } from '@/components/lesson/concepts/genders';
+import { NegationLesson } from '@/components/lesson/concepts/negation';
 import { PronounsLesson } from '@/components/lesson/concepts/pronouns';
 import { VerbsLesson } from '@/components/lesson/concepts/verbs';
 
@@ -8,4 +9,5 @@ export const ConceptLessons: Record<string, Slide[]> = {
   genders: GendersLesson,
   'pronouns-1': PronounsLesson,
   'verbs-1': VerbsLesson,
+  'negation-1': NegationLesson,
 };
