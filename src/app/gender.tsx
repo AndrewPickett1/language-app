@@ -15,18 +15,18 @@ import { Panel, PillButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
 import { gloss } from '@/data/lesson';
 import { RarityInfo } from '@/data/rarity';
+import { selectStudyWords } from '@/data/study-words';
 import { useAuth } from '@/state/auth';
 import { useGame } from '@/state/game';
 import { useLanguage } from '@/state/language';
 import { useLotto } from '@/state/lotto';
+import { useMyWords } from '@/state/my-words';
 import { useStreak } from '@/state/streak';
 import { Font } from '@/theme/fonts';
 import { Bounce, Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
 import { bareNoun, fetchGenderNouns, genderTip, withArticle, type GenderNoun } from '@/utils/gender-nouns';
 import type { BonusPullRow } from '@/utils/lotto';
-
-const SessionSize = 10;
 
 type Gender = GenderNoun['gender'];
 type Loaded = { key: string; nouns: GenderNoun[]; error: string | null };
@@ -35,6 +35,7 @@ type Loaded = { key: string; nouns: GenderNoun[]; error: string | null };
 export default function GenderScreen() {
   const { user } = useAuth();
   const { language } = useLanguage();
+  const myWords = useMyWords();
   const [loaded, setLoaded] = useState<Loaded>();
   const [round, setRound] = useState(0);
   const userId = user?.id;
@@ -54,7 +55,8 @@ export default function GenderScreen() {
   }, [userId, language, key]);
 
   const current = loaded?.key === key ? loaded : undefined;
-  if (!current) return <GenderMessage title="Sorting nouns…" detail={`Getting your ${language.name} nouns ready.`} loading />;
+  // Waits for My words too, since its progress decides which nouns come up.
+  if (!current || myWords.loading) return <GenderMessage title="Sorting nouns…" detail={`Getting your ${language.name} nouns ready.`} loading />;
   if (current.error) return <GenderMessage title="Couldn't load" detail={`We couldn't load your words. ${current.error}`} />;
   if (current.nouns.length === 0) {
     return <GenderMessage title="No nouns yet" detail={`Pull a capsule or finish a lesson to get some ${language.name} nouns to sort.`} />;
@@ -70,7 +72,8 @@ function GenderSession({ pool, onAgain }: { pool: GenderNoun[]; onAgain: () => v
   const streak = useStreak();
   const lotto = useLotto();
   const [bonus, setBonus] = useState<BonusPullRow | null>(null);
-  const [session] = useState(() => pool.slice(0, SessionSize));
+  const myWords = useMyWords();
+  const [session] = useState(() => selectStudyWords('gender', pool, myWords.progress));
   const [qi, setQi] = useState(0);
   const [picked, setPicked] = useState<Gender | null>(null);
   const [score, setScore] = useState(0);

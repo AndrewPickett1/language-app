@@ -23,6 +23,8 @@ import { speak } from '@/components/speak-button';
 import { StreakPopup } from '@/components/streak-popup';
 import { PillButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
+import { shuffle } from '@/data/lesson';
+import { selectStudyWords } from '@/data/study-words';
 import type { Word } from '@/data/words';
 import { useGame } from '@/state/game';
 import { useLanguage } from '@/state/language';
@@ -33,23 +35,11 @@ import { Font } from '@/theme/fonts';
 import { Bounce, Radius, Space, Stroke } from '@/theme/tokens';
 import { usePalette } from '@/theme/use-palette';
 import type { BonusPullRow } from '@/utils/lotto';
+import type { WordProgress } from '@/utils/word-progress';
 
-const RoundSize = 5;
-
-function shuffle<T>(items: T[]): T[] {
-  const out = [...items];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
-
-/** Up to five of the learner's words with different meanings, so every pair has one right answer. */
-function pickRound(words: Word[]) {
-  const pairs = shuffle(words)
-    .filter((w, i, all) => all.findIndex((o) => o.meaning === w.meaning) === i)
-    .slice(0, RoundSize);
+/** The round's pairs from `selectStudyWords` (see `src/data/study-words.ts`), with the meanings column in its own order. */
+function pickRound(words: Word[], progress: Record<string, WordProgress>) {
+  const pairs = selectStudyWords('matching', words, progress);
   return { pairs, meanings: shuffle(pairs) };
 }
 
@@ -74,12 +64,12 @@ export default function MatchScreen() {
     return <MatchMessage title="Not enough words" detail={`Pull a capsule or two to get more ${language.name} words to match.`} />;
   }
   // A new key starts a fresh round with new words and a reset clock.
-  return <MatchRound key={round} words={myWords.words} onAgain={() => setRound((r) => r + 1)} />;
+  return <MatchRound key={round} words={myWords.words} progress={myWords.progress} onAgain={() => setRound((r) => r + 1)} />;
 }
 
 type TileState = 'idle' | 'selected' | 'wrong' | 'done';
 
-function MatchRound({ words, onAgain }: { words: Word[]; onAgain: () => void }) {
+function MatchRound({ words, progress, onAgain }: { words: Word[]; progress: Record<string, WordProgress>; onAgain: () => void }) {
   const p = usePalette();
   const { language } = useLanguage();
   const insets = useSafeAreaInsets();
@@ -87,7 +77,7 @@ function MatchRound({ words, onAgain }: { words: Word[]; onAgain: () => void }) 
   const streak = useStreak();
   const lotto = useLotto();
   const [bonus, setBonus] = useState<BonusPullRow | null>(null);
-  const [{ pairs, meanings }] = useState(() => pickRound(words));
+  const [{ pairs, meanings }] = useState(() => pickRound(words, progress));
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(startedAt);
   const [matched, setMatched] = useState<string[]>([]);

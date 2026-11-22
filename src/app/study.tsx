@@ -16,7 +16,8 @@ import { StreakPopup } from '@/components/streak-popup';
 import { Panel, PillButton, Sticker } from '@/components/sticker';
 import { Txt } from '@/components/text';
 import { RarityInfo } from '@/data/rarity';
-import { pickStudyWords } from '@/data/word-priority';
+import { shuffle } from '@/data/lesson';
+import { selectStudyWords } from '@/data/study-words';
 import type { Word } from '@/data/words';
 import { useGame } from '@/state/game';
 import { useLanguage } from '@/state/language';
@@ -30,33 +31,14 @@ import type { BonusPullRow } from '@/utils/lotto';
 import { fetchDeck } from '@/utils/word-rows';
 import type { WordProgress } from '@/utils/word-progress';
 
-const SessionLength = 10;
-
 type Question = { word: Word; options: string[] };
 
-function shuffle<T>(items: T[]): T[] {
-  const out = [...items];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
-
 /**
- * Ten questions from the learner's words, `focusId` first, then the words `pickStudyWords` ranks highest
- * (see `src/data/word-priority.ts`), in random order. With `onlyIds` (Polish on My words), only those words
- * are asked. Wrong options come from the language's whole deck plus the learner's words, and prefer the same word type.
+ * Questions on the words `selectStudyWords` picks (see `src/data/study-words.ts`). Wrong options come from the
+ * language's whole deck plus the learner's words, and prefer the same word type.
  */
 function buildSession(collected: Word[], deck: Word[], progress: Record<string, WordProgress>, focusId?: string, onlyIds?: string[]): Question[] {
-  const focus = collected.find((w) => w.id === focusId);
-  const only = onlyIds ? collected.filter((w) => onlyIds.includes(w.id)) : [];
-  const pool = only.length > 0 ? only : collected;
-  const rest = shuffle(pickStudyWords(pool.filter((w) => w !== focus), progress, focus ? SessionLength - 1 : SessionLength));
-  const picks = focus ? [focus, ...rest] : rest;
-  const words = Array.from({ length: Math.min(SessionLength, Math.max(picks.length, 1) * 2) }, (_, i) => picks[i % picks.length]);
-
-  return words.map((word) => {
+  return selectStudyWords('flashcards', collected, progress, { focusId, onlyIds }).map((word) => {
     const others = [...deck, ...collected].filter((w) => w.meaning !== word.meaning);
     const sameType = shuffle(others.filter((w) => w.type === word.type));
     const distractors = [...sameType, ...shuffle(others)]

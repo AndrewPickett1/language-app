@@ -1,5 +1,4 @@
 import type { Language } from '@/data/languages';
-import { shuffle } from '@/data/lesson';
 import { supabase } from '@/utils/supabase';
 import { WordColumns, toWord, type LoadedWord, type WordRow } from '@/utils/word-rows';
 
@@ -9,7 +8,7 @@ export type GenderNoun = LoadedWord & { gender: 'M' | 'F' };
 type Row = { words: WordRow | null };
 
 /**
- * The learner's own masculine and feminine nouns in `language`, shuffled. Filters on the raw
+ * The learner's own masculine and feminine nouns in `language`, the pool Gender's `selectStudyWords` picks from. Filters on the raw
  * `word_type`, since the app's `WordType` also maps phrases and articles (which have a gender) to Noun.
  */
 export async function fetchGenderNouns(userId: string, language: Language): Promise<GenderNoun[]> {
@@ -31,7 +30,7 @@ export async function fetchGenderNouns(userId: string, language: Language): Prom
     // Words without a language show up whichever language is picked, as in My words.
     if (word.gender && (word.language === null || word.language === language.name)) nouns.push({ ...word, gender: word.gender });
   }
-  return shuffle(nouns);
+  return nouns;
 }
 
 /** Stored nouns are capitalised; German keeps the capital, the others read lower-case. */
