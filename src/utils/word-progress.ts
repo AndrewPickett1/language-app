@@ -23,6 +23,10 @@ export type WordProgress = {
   masteredAt: Date | null;
   lastSeenAt: Date | null;
   nextReviewAt: Date | null;
+  /** The learner's local days since they got the word: 0 is today. */
+  addedDaysAgo: number;
+  /** The learner's local days since they last answered it wrong: 0 is today, null if never. */
+  missedDaysAgo: number | null;
 };
 
 type ProgressRow = {
@@ -38,6 +42,8 @@ type ProgressRow = {
   mastered_at: string | null;
   last_seen_at: string | null;
   next_review_at: string | null;
+  added_days_ago: number;
+  missed_days_ago: number | null;
 };
 
 const date = (s: string | null) => (s ? new Date(s) : null);
@@ -61,6 +67,8 @@ export async function fetchWordProgress(): Promise<Record<string, WordProgress>>
       masteredAt: date(row.mastered_at),
       lastSeenAt: date(row.last_seen_at),
       nextReviewAt: date(row.next_review_at),
+      addedDaysAgo: row.added_days_ago,
+      missedDaysAgo: row.missed_days_ago,
     };
   }
   return progress;
@@ -82,6 +90,8 @@ export function progressFor(progress: Record<string, WordProgress>, wordId: stri
       masteredAt: null,
       lastSeenAt: null,
       nextReviewAt: null,
+      addedDaysAgo: 0,
+      missedDaysAgo: null,
     }
   );
 }
