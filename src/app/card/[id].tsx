@@ -5,7 +5,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { ChevronIcon, FlipIcon } from '@/components/icons';
+import { ChevronIcon, StatsIcon, WordIcon } from '@/components/icons';
 import { WordStatsCard } from '@/components/mastery/word-stats-card';
 import { Screen, ScreenHeader, goBack } from '@/components/screen';
 import { RoundButton, Sticker } from '@/components/sticker';
@@ -159,7 +159,7 @@ function TurnButton({ to, onPress }: { to: Side; onPress: () => void }) {
       lift={3}
       onPress={onPress}
       style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-      <FlipIcon color={p.onBright} size={20} />
+      {to === 'stats' ? <StatsIcon color={p.onBright} size={20} /> : <WordIcon color={p.onBright} size={22} />}
     </Sticker>
   );
 }

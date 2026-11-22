@@ -554,6 +554,27 @@ export function FlipIcon({ color, size = 16 }: IconProps) {
   );
 }
 
+/** Three rising bars: how well you know a word. */
+export function StatsIcon({ color, size = 16 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M5 20v-6M12 20V9M19 20V4" fill="none" stroke={color} strokeWidth={3.6} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** A card with "Aa" on it: the word side of a card. */
+export function WordIcon({ color, size = 16 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Rect x={3} y={4} width={18} height={16} rx={3.5} fill="none" stroke={color} strokeWidth={2.4} />
+      <SvgText x={12} y={16.2} textAnchor="middle" fontFamily={Font.display700} fontSize={10} fill={color}>
+        Aa
+      </SvgText>
+    </Svg>
+  );
+}
+
 /** A circular arrow: go round again. */
 export function RefreshIcon({ color, size = 16 }: IconProps) {
   return (
